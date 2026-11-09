@@ -451,7 +451,7 @@ function finishTrip(T){
 
 /* ---------- speed limits: OpenStreetMap roads, matched to the one you're driving on ---------- */
 const ROAD_RE = 'motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link';
-const SL = { ways: [], center: null, radius: 1500, lastReq: 0, inflight: false, fails: 0, status: 'idle', cur: null, curTs: 0, curLim: null };
+const SL = { ways: [], center: null, radius: 800, err: '', lastReq: 0, inflight: false, fails: 0, status: 'idle', cur: null, curTs: 0, curLim: null };
 let overrides = store.get('tc_limit_overrides', {});
 function parseMax(v){
   if (!v) return null;
@@ -467,26 +467,53 @@ function inferLimit(hw){
   if (hw === 'trunk') return 80;
   return null;
 }
-async function loadArea(lat, lon){
-  SL.inflight = true; SL.lastReq = Date.now(); SL.status = 'loading'; renderPills();
-  const q = `[out:json][timeout:25];way(around:${SL.radius},${lat.toFixed(5)},${lon.toFixed(5)})[highway~"^(${ROAD_RE})$"];out tags geom;`;
-  const hosts = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
-  let data = null;
+function fetchTimeout(url, opts, ms){
+  const c = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const t = setTimeout(() => c && c.abort(), ms);
+  return fetch(url, Object.assign({}, opts, c ? { signal: c.signal } : {})).finally(() => clearTimeout(t));
+}
+// cache recently downloaded areas so familiar drives load instantly (and work if the map server is busy)
+function cachedArea(lat, lon){
+  const cache = store.get('tc_map_cache', []);
+  return cache.find(a => hav(a.center, { lat, lon }) < a.radius * 0.6) || null;
+}
+function saveArea(area){
+  let cache = store.get('tc_map_cache', []).filter(a => hav(a.center, area.center) > 300);
+  cache.unshift(area); cache = cache.slice(0, 6);
+  while (cache.length) { try { localStorage.setItem('tc_map_cache', JSON.stringify(cache)); break; } catch(e){ cache.pop(); } }
+}
+function useArea(area){ SL.ways = area.ways; SL.center = area.center; SL.radius = area.radius; SL.status = 'ok'; SL.err = ''; }
+async function loadArea(lat, lon, kmh){
+  const hit = cachedArea(lat, lon);
+  if (hit) { useArea(hit); renderPills(); return; }
+  const radius = kmh > 70 ? 1500 : 800;
+  SL.inflight = true; SL.lastReq = Date.now(); if (!SL.ways.length) SL.status = 'loading'; renderPills();
+  const q = `[out:json][timeout:12];way(around:${radius},${lat.toFixed(5)},${lon.toFixed(5)})[highway~"^(${ROAD_RE})$"];out tags geom qt;`;
+  const hosts = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
+  let data = null, err = '';
   for (const h of hosts) {
     try {
-      const r = await fetch(h, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-      if (r.ok) { data = await r.json(); break; }
-    } catch(e){}
+      const r = await fetchTimeout(h, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, 12000);
+      if (!r.ok) { err = r.status === 429 ? 'busy' : 'HTTP ' + r.status; continue; }
+      const j = await r.json();
+      if (j && Array.isArray(j.elements)) { data = j; break; }
+      err = 'bad reply';
+    } catch(e){ err = e && e.name === 'AbortError' ? 'timed out' : 'no connection'; }
   }
-  if (data && data.elements) {
-    SL.ways = data.elements.filter(e => e.geometry && e.geometry.length > 1).map(e => {
+  if (data) {
+    const r5 = v => Math.round(v * 1e5) / 1e5;
+    const ways = data.elements.filter(e => e.geometry && e.geometry.length > 1).map(e => {
       const t = e.tags || {};
       return { id: e.id, hw: t.highway, name: t.name || t.ref || '', oneway: t.oneway === 'yes' || /motorway/.test(t.highway),
         posted: parseMax(t.maxspeed) || parseMax(t['maxspeed:forward']) || parseMax(t['maxspeed:backward']),
-        pts: e.geometry.map(g => [g.lat, g.lon]) };
+        pts: e.geometry.map(g => [r5(g.lat), r5(g.lon)]) };
     });
-    SL.center = { lat, lon }; SL.fails = 0; SL.status = 'ok';
-  } else { SL.fails++; SL.status = 'error'; }
+    const area = { center: { lat, lon }, radius, ways, ts: Date.now() };
+    useArea(area); SL.fails = 0; saveArea(area);
+  } else {
+    SL.fails++; SL.err = err || 'failed';
+    if (!SL.ways.length) SL.status = 'error';
+  }
   SL.inflight = false; renderPills();
 }
 // distance (m) from the car to a way, and the direction of the nearest piece of road
@@ -533,7 +560,7 @@ function currentLimit(lat, lon, kmh, hd){
   if (settings.limSrc === 'default') return { limit: settings.defLimit, src: 'fixed' };
   const now = Date.now();
   const needArea = !SL.center || hav(SL.center, { lat, lon }) > SL.radius * 0.6;
-  if (needArea && !SL.inflight && now - SL.lastReq > (SL.fails ? 30000 : 10000) && navigator.onLine !== false) loadArea(lat, lon);
+  if (needArea && !SL.inflight && now - SL.lastReq > (SL.fails ? 20000 : 5000)) loadArea(lat, lon, kmh);
   if (!SL.ways.length) return { limit: settings.defLimit, src: 'fallback', name: '', wayId: null };
   const w = matchRoad(lat, lon, hd, kmh);
   if (!w) {
@@ -625,7 +652,7 @@ function renderPills(){
   else pills.push([`GPS ±${Math.round(gpsAcc)} m`, gpsAcc <= 20 ? 'ok' : 'warn']);
   pills.push([motionOK ? 'Motion on' : 'Motion off', motionOK ? 'ok' : (active ? 'warn' : '')]);
   if (active) pills.push([wakeLock ? 'Screen stays on' : 'Screen may sleep', wakeLock ? 'ok' : 'warn']);
-  if (active && settings.limSrc === 'auto') pills.push(SL.status === 'ok' ? [`Map: ${SL.ways.length} roads`, 'ok'] : SL.status === 'loading' ? ['Map loading…', 'warn'] : SL.status === 'error' ? ['Map failed: using fallback', 'bad'] : ['Map waiting', '']);
+  if (active && settings.limSrc === 'auto') pills.push(SL.status === 'ok' ? [`Map: ${SL.ways.length} roads`, 'ok'] : SL.status === 'loading' ? ['Map loading…', 'warn'] : SL.status === 'error' ? [`Map ${SL.err}: retrying, limits are guesses`, 'bad'] : ['Map waiting', '']);
   if (isNight(Date.now())) pills.push(['🌙 Night ×1.5', 'bad']);
   pills.push([settings.mode === 'strict' ? 'Strict' : 'Normal', '']);
   $('pills').innerHTML = pills.map(([t, c]) => `<span class="pill ${c}">${t}</span>`).join('');
