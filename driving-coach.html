@@ -113,6 +113,10 @@ textarea{width:100%;height:120px;background:var(--card2);color:var(--text);borde
         <div class="muted small" id="limitsrc">Speed limit: —</div></div>
       <div class="sign unknown" id="sign">—<span>LIMIT</span></div>
     </div>
+    <div id="picker" style="display:none;margin-top:12px">
+      <div class="small muted" id="pickerTitle" style="margin-bottom:8px"></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="pickerBtns"></div>
+    </div>
   </div>
   <div class="card">
     <div class="livescore">
@@ -246,7 +250,7 @@ class TripEngine {
   get moving(){ return this.lastSpeed > 3; }
   newTrip(ts){
     return { id: 't' + ts, start: ts, end: ts, distM: 0, movingSec: 0, nightSec: 0, gaps: 0, maxKmh: 0,
-      events: [], speed: { knownSec: 0, minorSec: 0, majorSec: 0, wMinor: 0, wMajor: 0 } };
+      events: [], roads: {}, speed: { knownSec: 0, minorSec: 0, majorSec: 0, wMinor: 0, wMajor: 0 } };
   }
   _emit(type, t, pos, extra){
     if (!this.trip) return null;
@@ -311,6 +315,11 @@ class TripEngine {
     const sp = this.trip.speed;
     if (f.limit == null || f.speed < 2) { this.overSince = null; this.speedEv = null; return; }
     sp.knownSec += dt;
+    if (f.wayId != null) {
+      const R = this.trip.roads[f.wayId] || (this.trip.roads[f.wayId] = { name: f.road || 'Unnamed road', limit: f.limit, src: f.limitSrc, sec: 0, overSec: 0 });
+      R.sec += dt; R.limit = f.limit; R.src = f.limitSrc;
+      if (f.speed * 3.6 - f.limit > 10) R.overSec += dt;
+    }
     const over = f.speed * 3.6 - f.limit, w = isNight(f.t) ? NIGHT_W : 1;
     if (over > 20) { sp.majorSec += dt; sp.wMajor += dt * w; }
     else if (over > 10) { sp.minorSec += dt; sp.wMinor += dt * w; }
@@ -318,7 +327,7 @@ class TripEngine {
       if (this.overSince == null) this.overSince = f.t;
       if (!this.speedEv && f.t - this.overSince >= 5000) {
         this.cool.speed = 0;
-        this.speedEv = this._emit('speed', f.t, f, { limit: f.limit, maxOver: Math.round(over), severe: over > 20 });
+        this.speedEv = this._emit('speed', f.t, f, { limit: f.limit, limitSrc: f.limitSrc, road: f.road, wayId: f.wayId, maxOver: Math.round(over), severe: over > 20 });
       } else if (this.speedEv) {
         this.speedEv.maxOver = Math.max(this.speedEv.maxOver, Math.round(over));
         if (over > 20) this.speedEv.severe = true;
@@ -440,12 +449,14 @@ function finishTrip(T){
   if (a && a.id) { a.result = scoreTrip(a); a.recovered = true; trips.unshift(a); saveTrips(); store.del('tc_active'); }
 })();
 
-/* ---------- speed limits (OpenStreetMap) ---------- */
-const SL = { limit: null, src: 'none', name: '', pos: null, ts: 0, lastReq: 0, inflight: false, fails: 0 };
+/* ---------- speed limits: OpenStreetMap roads, matched to the one you're driving on ---------- */
+const ROAD_RE = 'motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link';
+const SL = { ways: [], center: null, radius: 1500, lastReq: 0, inflight: false, fails: 0, status: 'idle', cur: null, curTs: 0, curLim: null };
+let overrides = store.get('tc_limit_overrides', {});
 function parseMax(v){
   if (!v) return null;
   v = String(v).split(';')[0].trim();
-  const named = { 'CA:ON:urban': 50, 'CA:urban': 50, 'CA:ON:rural': 80, 'CA:rural': 80, 'CA:ON:motorway': 100 };
+  const named = { 'CA:ON:urban': 50, 'CA:urban': 50, 'CA:ON:rural': 80, 'CA:rural': 80, 'CA:ON:motorway': 100, 'CA:motorway': 100 };
   if (named[v]) return named[v];
   const m = v.match(/^(\d+)\s*(mph)?/);
   if (!m) return null;
@@ -454,42 +465,89 @@ function parseMax(v){
 function inferLimit(hw){
   if (hw === 'motorway') return 100;
   if (hw === 'trunk') return 80;
-  if (/_link$/.test(hw)) return 60;
   return null;
 }
-async function lookupLimit(lat, lon, kmh){
-  SL.inflight = true; SL.lastReq = Date.now();
-  const q = `[out:json][timeout:8];way(around:18,${lat},${lon})[highway~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)$"];out tags 8;`;
-  const hosts = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
-  try {
-    let data = null;
-    for (const h of hosts) {
-      try { const r = await fetch(h + '?data=' + encodeURIComponent(q)); if (r.ok) { data = await r.json(); break; } } catch(e){}
-    }
-    if (!data) throw new Error('no data');
-    const cands = (data.elements || []).map(e => {
+async function loadArea(lat, lon){
+  SL.inflight = true; SL.lastReq = Date.now(); SL.status = 'loading'; renderPills();
+  const q = `[out:json][timeout:25];way(around:${SL.radius},${lat.toFixed(5)},${lon.toFixed(5)})[highway~"^(${ROAD_RE})$"];out tags geom;`;
+  const hosts = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+  let data = null;
+  for (const h of hosts) {
+    try {
+      const r = await fetch(h, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+      if (r.ok) { data = await r.json(); break; }
+    } catch(e){}
+  }
+  if (data && data.elements) {
+    SL.ways = data.elements.filter(e => e.geometry && e.geometry.length > 1).map(e => {
       const t = e.tags || {};
-      const posted = parseMax(t.maxspeed);
-      return { limit: posted || inferLimit(t.highway), posted: !!posted, name: t.name || t.ref || t.highway };
-    }).filter(c => c.limit);
-    SL.pos = { lat, lon }; SL.ts = Date.now(); SL.fails = 0;
-    if (cands.length) {
-      // at intersections pick the road whose limit best matches how fast you're going
-      cands.sort((a, b) => (b.posted - a.posted) || (Math.abs(a.limit - kmh) - Math.abs(b.limit - kmh)));
-      SL.limit = cands[0].limit; SL.src = cands[0].posted ? 'map' : 'est'; SL.name = cands[0].name;
-    } else { SL.limit = null; SL.src = 'none'; SL.name = ''; }
-  } catch(e) { SL.fails++; }
-  SL.inflight = false;
+      return { id: e.id, hw: t.highway, name: t.name || t.ref || '', oneway: t.oneway === 'yes' || /motorway/.test(t.highway),
+        posted: parseMax(t.maxspeed) || parseMax(t['maxspeed:forward']) || parseMax(t['maxspeed:backward']),
+        pts: e.geometry.map(g => [g.lat, g.lon]) };
+    });
+    SL.center = { lat, lon }; SL.fails = 0; SL.status = 'ok';
+  } else { SL.fails++; SL.status = 'error'; }
+  SL.inflight = false; renderPills();
 }
-function currentLimit(lat, lon, kmh){
+// distance (m) from the car to a way, and the direction of the nearest piece of road
+function nearestOnWay(lat, lon, w){
+  const kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540;
+  let best = Infinity, brg = 0;
+  for (let i = 0; i < w.pts.length - 1; i++) {
+    const ax = (w.pts[i][1] - lon) * kx, ay = (w.pts[i][0] - lat) * ky;
+    const bx = (w.pts[i+1][1] - lon) * kx, by = (w.pts[i+1][0] - lat) * ky;
+    const dx = bx - ax, dy = by - ay, L2 = dx*dx + dy*dy;
+    let t = L2 ? -(ax*dx + ay*dy) / L2 : 0; t = Math.max(0, Math.min(1, t));
+    const px = ax + t*dx, py = ay + t*dy, d = Math.hypot(px, py);
+    if (d < best) { best = d; brg = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360; }
+  }
+  return { d: best, brg };
+}
+function matchRoad(lat, lon, hd, kmh){
+  let best = null;
+  const useHd = hd != null && !isNaN(hd) && kmh > 10;
+  for (const w of SL.ways) {
+    const { d, brg } = nearestOnWay(lat, lon, w);
+    if (d > 40) continue;
+    let cost = d;
+    if (useHd) {
+      let diff = Math.abs(angDiff(brg, hd));
+      if (!w.oneway) diff = Math.min(diff, 180 - diff);
+      if (diff > 45) continue;              // road runs the wrong way: it's a cross street
+      cost += diff * 0.5;
+    }
+    if (SL.cur && SL.cur.id === w.id) cost -= 10; // stick to the road you were on
+    if (!best || cost < best.cost) best = { w, cost };
+  }
+  return best ? best.w : null;
+}
+function limitForWay(w){
+  if (overrides[w.id]) return { limit: overrides[w.id], src: 'you' };
+  if (w.posted) return { limit: w.posted, src: 'map' };
+  const inf = inferLimit(w.hw);
+  if (inf) return { limit: inf, src: 'est' };
+  return { limit: settings.defLimit, src: 'fallback' };
+}
+function currentLimit(lat, lon, kmh, hd){
   if (settings.limSrc === 'off') return { limit: null, src: 'off' };
   if (settings.limSrc === 'default') return { limit: settings.defLimit, src: 'fixed' };
   const now = Date.now();
-  const far = !SL.pos || hav(SL.pos, { lat, lon }) > 120;
-  if (!SL.inflight && kmh > 5 && (far || now - SL.ts > 45000) && now - SL.lastReq > 8000 && navigator.onLine !== false) lookupLimit(lat, lon, kmh);
-  const fresh = SL.pos && hav(SL.pos, { lat, lon }) < 400 && now - SL.ts < 90000;
-  if (fresh && SL.limit) return { limit: SL.limit, src: SL.src, name: SL.name };
-  return { limit: settings.defLimit, src: 'fallback' };
+  const needArea = !SL.center || hav(SL.center, { lat, lon }) > SL.radius * 0.6;
+  if (needArea && !SL.inflight && now - SL.lastReq > (SL.fails ? 30000 : 10000) && navigator.onLine !== false) loadArea(lat, lon);
+  if (!SL.ways.length) return { limit: settings.defLimit, src: 'fallback', name: '', wayId: null };
+  const w = matchRoad(lat, lon, hd, kmh);
+  if (!w) {
+    if (SL.curLim && now - SL.curTs < 15000) return SL.curLim; // brief GPS drift: keep last road
+    return { limit: settings.defLimit, src: 'fallback', name: '', wayId: null };
+  }
+  SL.cur = w; SL.curTs = now;
+  SL.curLim = Object.assign(limitForWay(w), { name: w.name || w.hw.replace('_', ' '), wayId: w.id });
+  return SL.curLim;
+}
+function setOverride(wayId, v){
+  if (v) overrides[wayId] = v; else delete overrides[wayId];
+  store.set('tc_limit_overrides', overrides);
+  if (SL.curLim && SL.curLim.wayId === wayId) { const w = SL.ways.find(x => x.id === wayId); if (w) SL.curLim = Object.assign(limitForWay(w), { name: SL.curLim.name, wayId }); lastLimit = SL.curLim; }
 }
 
 /* ---------- sensors ---------- */
@@ -512,9 +570,9 @@ function onMotion(e){
 function onPos(p){
   const c = p.coords, kmh = c.speed != null && c.speed >= 0 ? c.speed * 3.6 : 0;
   gpsAcc = c.accuracy; lastFixTs = Date.now();
-  lastLimit = currentLimit(c.latitude, c.longitude, kmh);
+  lastLimit = currentLimit(c.latitude, c.longitude, kmh, c.heading);
   engine.fix({ t: p.timestamp || Date.now(), lat: c.latitude, lon: c.longitude, acc: c.accuracy,
-    speed: c.speed, heading: c.heading, limit: lastLimit.limit });
+    speed: c.speed, heading: c.heading, limit: lastLimit.limit, limitSrc: lastLimit.src, wayId: lastLimit.wayId, road: lastLimit.name });
   renderLive();
 }
 function onPosErr(err){ toast(err.code === 1 ? 'Location blocked. Allow location for this site in Settings → Safari.' : 'GPS: ' + err.message); renderPills(); }
@@ -567,6 +625,7 @@ function renderPills(){
   else pills.push([`GPS ±${Math.round(gpsAcc)} m`, gpsAcc <= 20 ? 'ok' : 'warn']);
   pills.push([motionOK ? 'Motion on' : 'Motion off', motionOK ? 'ok' : (active ? 'warn' : '')]);
   if (active) pills.push([wakeLock ? 'Screen stays on' : 'Screen may sleep', wakeLock ? 'ok' : 'warn']);
+  if (active && settings.limSrc === 'auto') pills.push(SL.status === 'ok' ? [`Map: ${SL.ways.length} roads`, 'ok'] : SL.status === 'loading' ? ['Map loading…', 'warn'] : SL.status === 'error' ? ['Map failed: using fallback', 'bad'] : ['Map waiting', '']);
   if (isNight(Date.now())) pills.push(['🌙 Night ×1.5', 'bad']);
   pills.push([settings.mode === 'strict' ? 'Strict' : 'Normal', '']);
   $('pills').innerHTML = pills.map(([t, c]) => `<span class="pill ${c}">${t}</span>`).join('');
@@ -577,11 +636,15 @@ function renderLive(){
   $('spd').innerHTML = `${active || demo.running ? kmh : 0}<small>km/h</small>`;
   const L = lastLimit, sign = $('sign');
   if (L.limit && (active || demo.running)) {
-    sign.innerHTML = `${L.limit}<span>${L.src === 'map' ? 'LIMIT' : L.src === 'fixed' ? 'FIXED' : 'EST.'}</span>`;
-    sign.className = 'sign' + (kmh - L.limit > 10 ? ' over' : '');
-    $('limitsrc').textContent = L.src === 'map' ? `Posted limit${L.name ? ' · ' + L.name : ''}` :
-      L.src === 'est' ? `Estimated from road type${L.name ? ' · ' + L.name : ''}` :
-      L.src === 'fixed' ? 'Fixed limit (Settings)' : 'No map data: using fallback limit';
+    const tag = { map: 'POSTED', est: 'EST.', you: 'YOURS', fixed: 'FIXED', fallback: 'GUESS' }[L.src] || 'LIMIT';
+    sign.innerHTML = `${L.limit}<span>${tag}</span>`;
+    sign.className = 'sign' + (kmh - L.limit > 10 ? ' over' : '') + (L.src === 'fallback' ? ' unknown' : '');
+    const road = L.name ? ' · ' + L.name : '';
+    $('limitsrc').textContent = L.src === 'map' ? `Posted limit${road}` :
+      L.src === 'you' ? `Your correction${road}` :
+      L.src === 'est' ? `Estimated from road type${road}` :
+      L.src === 'fixed' ? 'Fixed limit (Settings)' :
+      `No limit in map data${road}: using ${settings.defLimit}. Tap sign to fix when stopped`;
   } else { sign.className = 'sign unknown'; sign.innerHTML = '—<span>LIMIT</span>'; $('limitsrc').textContent = settings.limSrc === 'off' ? 'Speed checks off' : 'Speed limit: —'; }
 
   const btn = $('startbtn');
@@ -648,10 +711,21 @@ function renderTripDetail(W, T){
       <div class="r">${v == null ? '<span class="muted">—</span>' : starHTML(starsFor(v))}<small>${v == null ? '' : labelFor(v) + ' · '}${detail}</small></div></div>
       ${v != null && v < 99.5 ? `<div class="tip">${m.tip}</div>` : ''}</div>`;
   }
+  const roads = Object.entries(T.roads || {}).filter(([, R]) => R.sec >= 10).sort((a, b) => b[1].sec - a[1].sec);
+  if (roads.length) {
+    html += `<h2>Roads &amp; limits used</h2><div class="card">`;
+    for (const [id, R] of roads) {
+      const fixed = overrides[id];
+      html += `<div class="ev"><div><b>${esc(R.name)}</b> · ${fixed ? fixed + ' <span class="tag">yours</span>' : R.limit + ` <span class="tag">${{ map: 'posted', est: 'est.', you: 'yours', fallback: 'guess' }[R.src] || R.src}</span>`}
+        <span class="muted">${Math.round(R.sec / 60 * 10) / 10} min${R.overSec ? ' · ' + Math.round(R.overSec) + ' s over' : ''}</span></div>
+        <a href="#" data-way="${id}" data-name="${esc(R.name)}" data-lim="${fixed || R.limit}" class="fixlim">Fix ›</a></div>`;
+    }
+    html += `</div><p class="note">Wrong limit? Tap Fix. It's saved for that road and used on future trips (this trip's score doesn't change).</p>`;
+  }
   if (T.events.length) {
     html += `<h2>What happened</h2><div class="card">`;
     for (const e of T.events.slice().sort((a, b) => a.t - b.t)) {
-      const what = e.type === 'speed' ? `Speeding: up to ${e.maxOver} over ${e.limit}` :
+      const what = e.type === 'speed' ? `Speeding: up to ${e.maxOver} over ${e.limit}${e.road ? ' on ' + e.road : ''}${e.limitSrc === 'fallback' ? ' (guessed limit)' : ''}` :
         e.type === 'distraction' ? (e.why || 'Phone use') :
         `${EV_TEXT[e.type][0]}${e.g ? ' · ' + e.g.toFixed(2) + ' g' : ''}`;
       const map = e.lat != null ? `<a href="https://maps.google.com/?q=${e.lat},${e.lon}" target="_blank" rel="noopener">Map ›</a>` : '';
@@ -663,6 +737,7 @@ function renderTripDetail(W, T){
   html += `<button class="btn sec" id="delTrip" style="color:var(--red)">Delete this trip</button>`;
   W.innerHTML = html;
   $('backBtn').onclick = () => { openTrip = null; renderTrips(); };
+  W.querySelectorAll('.fixlim').forEach(a => a.onclick = (e) => { e.preventDefault(); showView('drive'); openPicker(+a.dataset.way, a.dataset.name, +a.dataset.lim); window.scrollTo(0, 0); });
   const del = $('delTrip');
   del.onclick = () => {
     if (del.dataset.armed) { trips = trips.filter(t => t.id !== T.id); saveTrips(); openTrip = null; renderTrips(); renderStats(); }
@@ -799,6 +874,21 @@ function showView(v){
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => { if (b.dataset.v === 'trips') openTrip = null; showView(b.dataset.v); });
 $('startbtn').onclick = () => active ? stop() : start();
+function openPicker(wayId, name, cur){
+  const P = $('picker');
+  $('pickerTitle').textContent = `Correct the limit for ${name || 'this road'} (saved for next time):`;
+  $('pickerBtns').innerHTML = [30, 40, 50, 60, 70, 80, 90, 100].map(v => `<button class="btn sec" style="margin:0;padding:12px 0${v === cur ? ';border-color:var(--green);color:var(--green)' : ''}" data-v="${v}">${v}</button>`).join('')
+    + (overrides[wayId] ? `<button class="btn sec" style="margin:0;padding:12px 0;grid-column:span 4" data-v="0">Use map value again</button>` : '');
+  $('pickerBtns').querySelectorAll('button').forEach(b => b.onclick = () => { setOverride(wayId, +b.dataset.v); P.style.display = 'none'; toast(+b.dataset.v ? `Saved: ${name || 'this road'} = ${b.dataset.v}` : 'Back to map value'); renderLive(); renderTrips(); });
+  P.style.display = 'block';
+}
+$('sign').onclick = () => {
+  const L = lastLimit;
+  if (!active || !L.wayId) { toast(active ? 'No road matched yet' : 'Start driving first'); return; }
+  if (engine.lastSpeed * 3.6 > 5) { toast('Fix the limit when you are stopped'); return; }
+  const P = $('picker'); if (P.style.display === 'block') { P.style.display = 'none'; return; }
+  openPicker(L.wayId, L.name, L.limit);
+};
 $('endtripbtn').onclick = () => { if (engine.trip) engine.endTrip(); };
 
 $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
