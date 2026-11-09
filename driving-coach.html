@@ -102,7 +102,7 @@ textarea{width:100%;height:120px;background:var(--card2);color:var(--text);borde
 <div class="flash" id="flash"></div>
 <div class="toast" id="toast"></div>
 
-<div class="topbar"><h1>Driving Coach <span class="muted" style="font-size:12px;font-weight:500">v4</span></h1><div style="display:flex;align-items:center;gap:12px"><span class="muted small" id="clock"></span><button id="muteBtn" style="background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:7px 12px;font-size:15px;font-weight:600">🔊 Sound on</button></div></div>
+<div class="topbar"><h1>Driving Coach <span class="muted" style="font-size:12px;font-weight:500">v5</span></h1><div style="display:flex;align-items:center;gap:12px"><span class="muted small" id="clock"></span><button id="muteBtn" style="background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:7px 12px;font-size:15px;font-weight:600">🔊 Sound on</button></div></div>
 <div class="pills" id="pills"></div>
 
 <!-- DRIVE -->
@@ -517,7 +517,7 @@ async function loadArea(lat, lon, kmh){
   let data = null, err = '';
   for (const h of hosts) {
     try {
-      const r = await fetchTimeout(h, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, 12000);
+      const r = await fetchTimeout(h, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }, 25000);
       if (!r.ok) { err = r.status === 429 ? 'busy' : 'HTTP ' + r.status; continue; }
       const j = await r.json();
       if (j && Array.isArray(j.elements)) { data = j; break; }
@@ -590,12 +590,62 @@ function limitForWay(w){
   if (inf) return { limit: inf, src: 'est' };
   return { limit: settings.defLimit, src: 'fallback' };
 }
+/* map files built monthly by the repo's GitHub Action (roads/), served from this same site */
+const TILES = { index: null, set: null, tile: 0.02, indexTried: false, idxLoading: false, loaded: {}, loading: {}, err: '' };
+const tileKey = (lat, lon) => Math.floor(lat / TILES.tile) + '_' + Math.floor(lon / TILES.tile);
+async function loadIndex(){
+  TILES.idxLoading = true;
+  try {
+    const r = await fetchTimeout('roads/index.json', { cache: 'no-cache' }, 15000);
+    if (r.ok) { TILES.index = await r.json(); TILES.set = new Set(TILES.index.tiles); TILES.tile = TILES.index.tile || 0.02; }
+  } catch(e){}
+  TILES.indexTried = true; TILES.idxLoading = false;
+}
+function decodeWay(r){
+  const pts = []; for (let i = 0; i < r[5].length; i += 2) pts.push([r[5][i] / 1e5, r[5][i+1] / 1e5]);
+  return { id: r[0], hw: r[1], name: r[2] || '', posted: r[3] || null, oneway: !!r[4], pts };
+}
+function rebuildWays(lat, lon){
+  const ty = Math.floor(lat / TILES.tile), tx = Math.floor(lon / TILES.tile), seen = new Set(), ways = [];
+  for (const k of Object.keys(TILES.loaded)) {
+    const [y, x] = k.split('_').map(Number);
+    if (Math.abs(y - ty) > 2 || Math.abs(x - tx) > 2) { delete TILES.loaded[k]; continue; } // forget far-away tiles
+    for (const w of TILES.loaded[k]) if (!seen.has(w.id)) { seen.add(w.id); ways.push(w); }
+  }
+  SL.ways = enrichWays(ways); SL.mode = 'tiles'; SL.status = ways.length ? 'ok' : SL.status; SL.err = '';
+}
+async function loadTile(k, lat, lon){
+  TILES.loading[k] = true;
+  if (!SL.ways.length) { SL.status = 'loading'; renderPills(); }
+  try {
+    const r = await fetchTimeout('roads/' + k + '.json', {}, 20000);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    TILES.loaded[k] = (await r.json()).w.map(decodeWay);
+    rebuildWays(lat, lon);
+  } catch(e){ TILES.err = e && e.name === 'AbortError' ? 'timed out' : 'no connection'; if (!SL.ways.length) { SL.status = 'error'; SL.err = TILES.err; } TILES.retryAt = Date.now() + 15000; }
+  delete TILES.loading[k]; renderPills();
+}
+function ensureTiles(lat, lon){
+  if (SL.mode !== 'tiles') { SL.mode = 'tiles'; SL.ways = []; if (Object.keys(TILES.loaded).length) rebuildWays(lat, lon); }
+  const ty = Math.floor(lat / TILES.tile), tx = Math.floor(lon / TILES.tile);
+  if (TILES.lastTile !== ty + '_' + tx) { TILES.lastTile = ty + '_' + tx; if (Object.keys(TILES.loaded).length) rebuildWays(lat, lon); }
+  if (TILES.retryAt && Date.now() < TILES.retryAt) return;
+  for (const dy of [0, -1, 1]) for (const dx of [0, -1, 1]) {
+    const k = (ty + dy) + '_' + (tx + dx);
+    if (TILES.set.has(k) && !TILES.loaded[k] && !TILES.loading[k]) loadTile(k, lat, lon);
+  }
+}
 function currentLimit(lat, lon, kmh, hd){
   if (settings.limSrc === 'off') return { limit: null, src: 'off' };
   if (settings.limSrc === 'default') return { limit: settings.defLimit, src: 'fixed' };
   const now = Date.now();
-  const needArea = !SL.center || hav(SL.center, { lat, lon }) > SL.radius * 0.6;
-  if (needArea && !SL.inflight && now - SL.lastReq > (SL.fails ? 20000 : 5000)) loadArea(lat, lon, kmh);
+  if (!TILES.indexTried) { if (!TILES.idxLoading) loadIndex(); }
+  else if (TILES.set && TILES.set.has(tileKey(lat, lon))) ensureTiles(lat, lon);     // London area: our own map files
+  else {                                                                              // outside: live map server
+    if (SL.mode === 'tiles') { SL.mode = 'live'; SL.center = null; SL.ways = []; }
+    const needArea = !SL.center || hav(SL.center, { lat, lon }) > SL.radius * 0.6;
+    if (needArea && !SL.inflight && now - SL.lastReq > (SL.fails ? 20000 : 5000)) loadArea(lat, lon, kmh);
+  }
   if (!SL.ways.length) return { limit: settings.defLimit, src: 'fallback', name: '', wayId: null };
   const w = matchRoad(lat, lon, hd, kmh);
   if (!w) {
@@ -692,7 +742,7 @@ function renderPills(){
   else pills.push([`GPS ±${Math.round(gpsAcc)} m`, gpsAcc <= 20 ? 'ok' : 'warn']);
   pills.push([motionOK ? 'Motion on' : 'Motion off', motionOK ? 'ok' : (active ? 'warn' : '')]);
   if (active) pills.push([wakeLock ? 'Screen stays on' : 'Screen may sleep', wakeLock ? 'ok' : 'warn']);
-  if (active && settings.limSrc === 'auto') pills.push(SL.status === 'ok' ? [`Map: ${SL.ways.length} roads`, 'ok'] : SL.status === 'loading' ? ['Map loading…', 'warn'] : SL.status === 'error' ? [`Map ${SL.err}: retrying, limits are guesses`, 'bad'] : ['Map waiting', '']);
+  if (active && settings.limSrc === 'auto') pills.push(SL.status === 'ok' ? [`Map: ${SL.ways.length} roads${SL.mode === 'tiles' ? '' : ' (live)'}`, 'ok'] : SL.status === 'loading' ? ['Map loading…', 'warn'] : SL.status === 'error' ? [`Map ${SL.err}: retrying, limits are guesses`, 'bad'] : ['Map waiting', '']);
   if (isNight(Date.now())) pills.push(['🌙 Night ×1.5', 'bad']);
   pills.push([settings.mode === 'strict' ? 'Strict' : 'Normal', '']);
   $('pills').innerHTML = pills.map(([t, c]) => `<span class="pill ${c}">${t}</span>`).join('');
