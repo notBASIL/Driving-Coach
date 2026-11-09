@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Driving Coach">
+<meta name="theme-color" content="#0d1210">
+<title>Driving Coach</title>
+<style>
+:root{
+  --bg:#0d1210; --card:#161d1a; --card2:#1d2622; --line:#2a3530;
+  --text:#eef3f0; --muted:#93a39b; --green:#4cc06a; --amber:#f0a030;
+  --red:#ef5350; --blue:#5aa9e6; --star:#f08a24;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif}
+body{padding:env(safe-area-inset-top) 0 calc(72px + env(safe-area-inset-bottom)) 0;min-height:100vh}
+h1{font-size:20px;margin:0}
+h2{font-size:17px;margin:20px 0 10px}
+.wrap{padding:12px 16px;max-width:560px;margin:0 auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 4px;max-width:560px;margin:0 auto}
+.pills{display:flex;gap:6px;flex-wrap:wrap;padding:4px 16px 0;max-width:560px;margin:0 auto}
+.pill{font-size:12px;padding:4px 9px;border-radius:999px;background:var(--card2);color:var(--muted);border:1px solid var(--line)}
+.pill.ok{color:var(--green);border-color:#2f5a3a}
+.pill.warn{color:var(--amber);border-color:#5a4520}
+.pill.bad{color:var(--red);border-color:#5a2a2a}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:12px 0}
+.speedrow{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.speed{font-size:84px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.speed small{font-size:18px;color:var(--muted);font-weight:500;margin-left:4px}
+.sign{width:86px;height:86px;border-radius:50%;background:#fff;border:9px solid #d32f2f;color:#111;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:30px;flex:none}
+.sign span{font-size:10px;font-weight:600;color:#555;margin-top:-2px}
+.sign.unknown{border-color:#888;color:#888}
+.sign.over{animation:pulse 0.8s infinite}
+@keyframes pulse{50%{transform:scale(1.07)}}
+.livescore{display:flex;align-items:center;justify-content:space-between}
+.big{font-size:40px;font-weight:700;font-variant-numeric:tabular-nums}
+.stars{color:var(--star);letter-spacing:2px;font-size:20px;white-space:nowrap}
+.stars .off{color:#3c4742}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.cell{background:var(--card2);border-radius:12px;padding:10px 8px;text-align:center}
+.cell b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+.cell span{font-size:11px;color:var(--muted)}
+.btn{display:block;width:100%;border:0;border-radius:14px;padding:18px;font-size:19px;font-weight:700;color:#fff;background:var(--green);margin-top:10px}
+.btn.stop{background:var(--red)}
+.btn.sec{background:var(--card2);color:var(--text);border:1px solid var(--line);font-size:16px;padding:14px;font-weight:600}
+.btn:active{opacity:.8}
+.flash{position:fixed;inset:0;pointer-events:none;border:14px solid transparent;transition:border-color .2s;z-index:50}
+.flash.on{border-color:var(--red)}
+.flash.amber{border-color:var(--amber)}
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);transform:translateX(-50%);background:#222c28;
+  border:1px solid var(--line);color:var(--text);padding:12px 18px;border-radius:14px;font-weight:600;z-index:60;
+  opacity:0;transition:opacity .25s;max-width:90%;text-align:center}
+.toast.show{opacity:1}
+nav{position:fixed;bottom:0;left:0;right:0;background:#111816;border-top:1px solid var(--line);
+  display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:40}
+nav button{flex:1;background:none;border:0;color:var(--muted);padding:10px 0 12px;font-size:12px;font-weight:600}
+nav button .i{display:block;font-size:20px;margin-bottom:2px}
+nav button.active{color:var(--green)}
+.view{display:none}.view.active{display:block}
+.trip{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;
+  background:var(--card);border:1px solid var(--line);border-radius:14px;margin:8px 0}
+.trip .l b{display:block;font-size:15px}
+.trip .r{text-align:right}
+.tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:6px;background:var(--card2);color:var(--muted);margin-left:4px}
+.tag.night{color:#b9a7ff}
+.factor{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:10px 0;overflow:hidden}
+.factor .h{display:flex;align-items:center;justify-content:space-between;padding:14px}
+.factor .h .n{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
+.factor .h .n .ic{width:26px;text-align:center;color:var(--green);font-size:20px}
+.factor .r{text-align:right}
+.factor .r small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.factor .tip{border-top:1px solid var(--line);padding:10px 14px;font-size:13px;color:var(--muted)}
+.ev{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.ev:last-child{border-bottom:0}
+.ev a{color:var(--blue);text-decoration:none;white-space:nowrap}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.seg{display:flex;background:var(--card2);border-radius:10px;padding:3px}
+.seg button{border:0;background:none;color:var(--muted);padding:7px 10px;border-radius:8px;font-weight:600;font-size:13px}
+.seg button.on{background:var(--green);color:#fff}
+.switch{width:50px;height:30px;border-radius:15px;background:#3a4540;position:relative;border:0;flex:none}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .15s}
+.switch.on{background:var(--green)}.switch.on::after{left:23px}
+input[type=number]{width:74px;background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:7px;font-size:16px;text-align:center}
+.back{background:none;border:0;color:var(--green);font-size:16px;font-weight:600;padding:8px 0}
+.bar{height:8px;background:var(--card2);border-radius:4px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--green)}
+.note{font-size:12px;color:var(--muted);line-height:1.45}
+textarea{width:100%;height:120px;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:10px;font-size:11px;padding:8px}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+</style>
+</head>
+<body>
+<div class="flash" id="flash"></div>
+<div class="toast" id="toast"></div>
+
+<div class="topbar"><h1>Driving Coach</h1><span class="muted small" id="clock"></span></div>
+<div class="pills" id="pills"></div>
+
+<!-- DRIVE -->
+<section class="view active" id="v-drive"><div class="wrap">
+  <div class="card">
+    <div class="speedrow">
+      <div><div class="speed" id="spd">0<small>km/h</small></div>
+        <div class="muted small" id="limitsrc">Speed limit: —</div></div>
+      <div class="sign unknown" id="sign">—<span>LIMIT</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="livescore">
+      <div><div class="muted small" id="tripstate">Not driving</div><div class="big" id="livescore">—</div></div>
+      <div style="text-align:right"><div class="stars" id="livestars"></div><div class="muted small" id="livelabel"></div></div>
+    </div>
+    <div class="grid">
+      <div class="cell"><b id="c-brake">0</b><span>Hard brakes</span></div>
+      <div class="cell"><b id="c-accel">0</b><span>Fast starts</span></div>
+      <div class="cell"><b id="c-corner">0</b><span>Sharp turns</span></div>
+      <div class="cell"><b id="c-speed">0</b><span>Speeding</span></div>
+      <div class="cell"><b id="c-distraction">0</b><span>Phone use</span></div>
+      <div class="cell"><b id="c-km">0.0</b><span id="c-time">km · 0 min</span></div>
+    </div>
+  </div>
+  <button class="btn" id="startbtn">Start driving</button>
+  <button class="btn sec" id="endtripbtn" style="display:none">End this trip now</button>
+  <p class="note" style="margin-top:14px">Keep this screen open on your phone mount. iPhone pauses tracking when you switch to another app, and touching the phone while moving counts as phone use, just like TD's app.
+  Trips end on their own after <span id="autoendtxt">5</span> min parked.</p>
+</div></section>
+
+<!-- TRIPS -->
+<section class="view" id="v-trips"><div class="wrap" id="tripsWrap"></div></section>
+
+<!-- STATS -->
+<section class="view" id="v-stats"><div class="wrap" id="statsWrap"></div></section>
+
+<!-- SETTINGS -->
+<section class="view" id="v-settings"><div class="wrap">
+  <h2>Coaching</h2>
+  <div class="card">
+    <div class="row"><div>Sensitivity<div class="note">Strict flags gentler events, so you stay well under TD's limits.</div></div>
+      <div class="seg" id="set-sens"><button data-v="strict">Strict</button><button data-v="normal">Normal</button></div></div>
+    <div class="row"><div>Beep on events</div><button class="switch" id="set-beep"></button></div>
+    <div class="row"><div>Voice alerts</div><button class="switch" id="set-voice"></button></div>
+    <div class="row"><div>Auto-end trip after parked (min)</div><input type="number" id="set-autoend" min="1" max="30"></div>
+  </div>
+  <h2>Speed limits</h2>
+  <div class="card">
+    <div class="row"><div>Source<div class="note">Map looks up posted limits from OpenStreetMap as you drive.</div></div>
+      <div class="seg" id="set-limsrc"><button data-v="auto">Map</button><button data-v="default">Fixed</button><button data-v="off">Off</button></div></div>
+    <div class="row"><div>Fallback / fixed limit (km/h)<div class="note">Used when the map has no limit for a road.</div></div><input type="number" id="set-deflimit" min="20" max="120" step="10"></div>
+  </div>
+  <h2>Data</h2>
+  <div class="card">
+    <button class="btn sec" id="demoBtn" style="margin-top:0">Run a demo trip (simulated)</button>
+    <button class="btn sec" id="copyBtn">Copy all trips (JSON)</button>
+    <button class="btn sec" id="csvBtn">Download trips (CSV)</button>
+    <button class="btn sec" id="wipeBtn" style="color:var(--red)">Delete all trips</button>
+    <textarea id="exportBox" style="display:none;margin-top:10px" readonly></textarea>
+  </div>
+  <p class="note">How scoring works: each trip gets 1–5 stars on the same six factors TD lists (acceleration, braking, cornering, distractions, duration, speed). Events between 11 PM and 5 AM count 1.5× and trips over 90 minutes start losing duration points, matching TD's descriptions. TD's exact formula isn't public, so these are coaching estimates, not TD's numbers.
+  Hard brake ≈ 0.30 g (strict) / 0.35 g (normal); fast start ≈ 0.25 / 0.30 g; sharp turn ≈ 0.30 / 0.37 g; speeding = 10+ km/h over the limit for 5+ seconds.
+  Data stays on this phone only.</p>
+</div></section>
+
+<nav>
+  <button data-v="drive" class="active"><span class="i">🚗</span>Drive</button>
+  <button data-v="trips"><span class="i">📋</span>Trips</button>
+  <button data-v="stats"><span class="i">⭐</span>Stats</button>
+  <button data-v="settings"><span class="i">⚙️</span>Settings</button>
+</nav>
+
+<!-- ================= ENGINE (no DOM) ================= -->
+<script id="engine">
+const THRESH = {
+  strict: { brake: 2.9, accel: 2.5, corner: 3.0 },   // m/s²
+  normal: { brake: 3.4, accel: 3.0, corner: 3.6 }
+};
+const SEVERE_MULT = 1.35, NIGHT_W = 1.5, MOVING_MS = 4.2; // 15 km/h starts a trip
+const FACTORS = ['accel','brake','corner','distraction','duration','speed'];
+const FACTOR_META = {
+  accel:{name:'Acceleration',icon:'⚡',tip:'Roll onto the gas gently from stops. Count "one-two" before pressing harder.'},
+  brake:{name:'Braking',icon:'⛔',tip:'Look further ahead and leave a 3-second gap so you can ease off early instead of braking hard.'},
+  corner:{name:'Cornering',icon:'↪',tip:'Slow down before the turn, not during it. Keep turns smooth with steady speed.'},
+  distraction:{name:'Distractions',icon:'📵',tip:'Set up Uber and maps before moving. Accept trips only when stopped and parked safely.'},
+  duration:{name:'Duration',icon:'⏱',tip:'Drives over 90 minutes start losing points. Take a short break and the next drive starts fresh.'},
+  speed:{name:'Speed',icon:'🏎',tip:'Stay within 10 km/h of the posted limit. Night speeding is scored harder.'}
+};
+function isNight(ts){ const h = new Date(ts).getHours(); return h >= 23 || h < 5; }
+function hav(a, b){
+  const R = 6371000, toR = Math.PI/180;
+  const dLat = (b.lat-a.lat)*toR, dLon = (b.lon-a.lon)*toR;
+  const x = Math.sin(dLat/2)**2 + Math.cos(a.lat*toR)*Math.cos(b.lat*toR)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.min(1, Math.sqrt(x)));
+}
+function bearing(a, b){
+  const toR = Math.PI/180;
+  const y = Math.sin((b.lon-a.lon)*toR)*Math.cos(b.lat*toR);
+  const x = Math.cos(a.lat*toR)*Math.sin(b.lat*toR) - Math.sin(a.lat*toR)*Math.cos(b.lat*toR)*Math.cos((b.lon-a.lon)*toR);
+  return (Math.atan2(y, x)/toR + 360) % 360;
+}
+function angDiff(a, b){ return ((b - a + 540) % 360) - 180; }
+function clamp(v){ return Math.max(0, Math.min(100, v)); }
+
+function starsFor(s){ return s >= 90 ? 5 : s >= 75 ? 4 : s >= 60 ? 3 : s >= 40 ? 2 : 1; }
+function labelFor(s){ return s >= 99.5 ? 'Perfect' : ['', 'Risky', 'Poor', 'Fair', 'Good', 'Great'][starsFor(s)]; }
+
+function scoreTrip(trip){
+  const km = trip.distM / 1000;
+  const dil = Math.max(1, km / 10); // events hurt less on longer trips
+  const pen = (type, base) => trip.events.filter(e => e.type === type)
+    .reduce((s, e) => s + base * (e.severe ? 2 : 1) * (e.night ? NIGHT_W : 1), 0) / dil;
+  const f = {};
+  f.brake = clamp(100 - pen('brake', 12));
+  f.accel = clamp(100 - pen('accel', 8));
+  f.corner = clamp(100 - pen('corner', 10));
+  f.distraction = clamp(100 - pen('distraction', 15));
+  const mins = (trip.end - trip.start) / 60000;
+  const nightShare = trip.movingSec > 0 ? trip.nightSec / trip.movingSec : 0;
+  f.duration = clamp(100 - Math.max(0, mins - 90) * 0.5 * (1 + 0.5 * nightShare));
+  const sp = trip.speed;
+  f.speed = sp.knownSec >= 30 ? clamp(100 - ((sp.wMinor + 3 * sp.wMajor) / sp.knownSec * 100) * 2) : null;
+  const W = { speed: .25, brake: .2, distraction: .2, accel: .15, corner: .15, duration: .05 };
+  let sum = 0, wsum = 0;
+  for (const k in W) if (f[k] != null) { sum += f[k] * W[k]; wsum += W[k]; }
+  const overall = sum / wsum;
+  // A single factor at 2 stars or less caps the overall at 4 stars (like a weak sub-score holding you back)
+  const worst = Math.min(...Object.values(f).filter(v => v != null));
+  const capped = worst < 60 ? Math.min(overall, 89) : overall;
+  return { factors: f, overall: Math.round(capped * 10) / 10, km, mins, short: km < 1 };
+}
+
+class TripEngine {
+  constructor(opts){ this.opts = Object.assign({ mode: 'strict', autoEndMin: 5 }, opts || {}); this.reset(); }
+  reset(){
+    this.trip = null; this.hist = []; this.peaks = []; this.cool = {};
+    this.handlingUntil = 0; this.lastMoveTs = 0; this.lastSpeed = 0;
+    this.overSince = null; this.speedEv = null;
+  }
+  get moving(){ return this.lastSpeed > 3; }
+  newTrip(ts){
+    return { id: 't' + ts, start: ts, end: ts, distM: 0, movingSec: 0, nightSec: 0, gaps: 0, maxKmh: 0,
+      events: [], speed: { knownSec: 0, minorSec: 0, majorSec: 0, wMinor: 0, wMajor: 0 } };
+  }
+  _emit(type, t, pos, extra){
+    if (!this.trip) return null;
+    const cd = type === 'distraction' ? 20000 : 5000;
+    if (this.cool[type] && t - this.cool[type] < cd) return null;
+    this.cool[type] = t;
+    const ev = Object.assign({ type, t, lat: pos ? pos.lat : null, lon: pos ? pos.lon : null,
+      kmh: Math.round(this.lastSpeed * 3.6), night: isNight(t), severe: false }, extra || {});
+    this.trip.events.push(ev);
+    this.opts.onEvent && this.opts.onEvent(ev);
+    return ev;
+  }
+  motion(s){ // {t, h: horizontal accel m/s² (smoothed), rot: deg/s}
+    if (s.rot > 150 && this.moving) {
+      this.handlingUntil = s.t + 2500;
+      this._emit('distraction', s.t, this.hist[this.hist.length-1], { why: 'Phone picked up / moved' });
+      return;
+    }
+    if (s.t < this.handlingUntil) return;
+    this.peaks.push({ t: s.t, h: s.h });
+    while (this.peaks.length && s.t - this.peaks[0].t > 2500) this.peaks.shift();
+  }
+  touch(t){ if (this.trip && this.moving) this._emit('distraction', t, this.hist[this.hist.length-1], { why: 'Screen touched while moving' }); }
+  hidden(t){ if (this.trip && this.moving) this._emit('distraction', t, this.hist[this.hist.length-1], { why: 'Switched to another app while moving' }); }
+
+  fix(f){ // {t, lat, lon, acc, speed(m/s|null), heading(deg|null), limit(km/h|null)}
+    if (f.acc != null && f.acc > 35) return null;
+    const prev = this.hist[this.hist.length - 1];
+    if (f.speed == null || f.speed < 0 || isNaN(f.speed)) {
+      f.speed = prev ? hav(prev, f) / Math.max(0.5, (f.t - prev.t) / 1000) : 0;
+    }
+    if ((f.heading == null || isNaN(f.heading) || f.heading < 0) && prev && hav(prev, f) > 3) f.heading = bearing(prev, f);
+    this.lastSpeed = f.speed;
+    const moving = f.speed > MOVING_MS;
+    let ended = null;
+    if (!this.trip && moving) { this.trip = this.newTrip(f.t); this.lastMoveTs = f.t; this.opts.onTripStart && this.opts.onTripStart(this.trip); }
+    if (this.trip) {
+      const T = this.trip;
+      if (f.speed > 1.5) this.lastMoveTs = f.t;
+      if (prev) {
+        const dt = (f.t - prev.t) / 1000;
+        if (dt > 30) {
+          T.gaps++;
+          if (dt < 600) T.distM += hav(prev, f); // phone was in background: count straight-line distance
+        } else if (dt > 0) {
+          const d = hav(prev, f);
+          if ((f.speed > 1.5 || prev.speed > 1.5) && d < Math.max(f.speed, prev.speed) * dt * 2 + 25) T.distM += d;
+          if (f.speed > 1.5) { T.movingSec += dt; if (isNight(f.t)) T.nightSec += dt; }
+          this._speeding(f, dt);
+          this._detect(f);
+        }
+      }
+      T.end = f.t;
+      T.maxKmh = Math.max(T.maxKmh, Math.round(f.speed * 3.6));
+      if (f.t - this.lastMoveTs > this.opts.autoEndMin * 60000) ended = this.endTrip(this.lastMoveTs);
+    }
+    this.hist.push(f);
+    while (this.hist.length && f.t - this.hist[0].t > 8000) this.hist.shift();
+    return ended;
+  }
+  _speeding(f, dt){
+    const sp = this.trip.speed;
+    if (f.limit == null || f.speed < 2) { this.overSince = null; this.speedEv = null; return; }
+    sp.knownSec += dt;
+    const over = f.speed * 3.6 - f.limit, w = isNight(f.t) ? NIGHT_W : 1;
+    if (over > 20) { sp.majorSec += dt; sp.wMajor += dt * w; }
+    else if (over > 10) { sp.minorSec += dt; sp.wMinor += dt * w; }
+    if (over > 10) {
+      if (this.overSince == null) this.overSince = f.t;
+      if (!this.speedEv && f.t - this.overSince >= 5000) {
+        this.cool.speed = 0;
+        this.speedEv = this._emit('speed', f.t, f, { limit: f.limit, maxOver: Math.round(over), severe: over > 20 });
+      } else if (this.speedEv) {
+        this.speedEv.maxOver = Math.max(this.speedEv.maxOver, Math.round(over));
+        if (over > 20) this.speedEv.severe = true;
+      }
+    } else { this.overSince = null; this.speedEv = null; }
+  }
+  _detect(f){
+    let base = null;
+    for (const h of this.hist) { if (f.t - h.t <= 2600 && f.t - h.t >= 900) { base = h; break; } }
+    if (!base) return;
+    const dt = (f.t - base.t) / 1000;
+    const lon = (f.speed - base.speed) / dt;
+    let hr = 0, lat = 0;
+    if (f.heading != null && base.heading != null && f.speed > 5 && base.speed > 5) {
+      hr = angDiff(base.heading, f.heading) / dt;
+      lat = Math.abs(hr) * Math.PI / 180 * (f.speed + base.speed) / 2;
+    }
+    const peak = this.peaks.filter(p => f.t - p.t <= 2000).reduce((m, p) => Math.max(m, p.h), 0);
+    const th = THRESH[this.opts.mode] || THRESH.strict;
+    const g = v => Math.round(v / 9.81 * 100) / 100;
+    if (lon <= -th.brake || (peak >= th.brake && lon <= -1.5)) {
+      const m = Math.max(-lon, lon <= -1.5 ? peak : 0);
+      this._emit('brake', f.t, f, { g: g(m), severe: m >= th.brake * SEVERE_MULT });
+    } else if (lon >= th.accel || (peak >= th.accel && lon >= 1.2 && f.speed < 25)) {
+      const m = Math.max(lon, lon >= 1.2 ? peak : 0);
+      this._emit('accel', f.t, f, { g: g(m), severe: m >= th.accel * SEVERE_MULT });
+    } else if (lat >= th.corner || (peak >= th.corner && Math.abs(hr) >= 10 && Math.abs(lon) < 1.5)) {
+      const m = Math.max(lat, Math.abs(hr) >= 10 ? peak : 0);
+      this._emit('corner', f.t, f, { g: g(m), severe: m >= th.corner * SEVERE_MULT });
+    }
+  }
+  endTrip(atTs){
+    if (!this.trip) return null;
+    const T = this.trip;
+    if (atTs) T.end = Math.max(T.start, atTs);
+    T.result = scoreTrip(T);
+    this.trip = null; this.overSince = null; this.speedEv = null; this.cool = {};
+    this.opts.onTripEnd && this.opts.onTripEnd(T);
+    return T;
+  }
+}
+if (typeof module !== 'undefined') module.exports = { TripEngine, scoreTrip, starsFor, labelFor, hav };
+</script>
+
+<!-- ================= APP / UI ================= -->
+<script>
+(function(){
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+};
+let settings = Object.assign({ mode:'strict', beep:true, voice:true, autoEnd:5, limSrc:'auto', defLimit:50 }, store.get('tc_settings', {}));
+let trips = store.get('tc_trips', []);
+const saveSettings = () => store.set('tc_settings', settings);
+const saveTrips = () => store.set('tc_trips', trips);
+
+/* ---------- audio / alerts ---------- */
+let ac = null;
+function unlockAudio(){
+  try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume(); } catch(e){}
+  try { if (window.speechSynthesis) { const u = new SpeechSynthesisUtterance(''); speechSynthesis.speak(u); } } catch(e){}
+}
+function beep(freq, n){
+  if (!settings.beep || !ac) return;
+  for (let i = 0; i < n; i++) {
+    const o = ac.createOscillator(), g = ac.createGain(), t0 = ac.currentTime + i * 0.22;
+    o.frequency.value = freq; o.type = 'square';
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+    o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0 + 0.18);
+  }
+}
+function say(text){
+  if (!settings.voice || !window.speechSynthesis) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 1.05; speechSynthesis.speak(u); } catch(e){}
+}
+let toastT = null;
+function toast(msg){ const el = $('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 3000); }
+function flash(cls){ const el = $('flash'); el.className = 'flash ' + cls; setTimeout(() => el.className = 'flash', 900); }
+
+const EV_TEXT = {
+  brake: ['Hard brake', 'Easy on the brakes'],
+  accel: ['Fast start', 'Easy on the gas'],
+  corner: ['Sharp turn', 'Slow down for turns'],
+  speed: ['Speeding', 'Slow down'],
+  distraction: ['Phone use', 'Phone down while driving']
+};
+function onEvent(ev){
+  if (demo.running && demo.quiet) { renderLive(); return; }
+  const [title, phrase] = EV_TEXT[ev.type];
+  if (ev.type === 'speed') { say(`Slow down. Limit ${ev.limit}`); beep(880, 3); }
+  else { say(phrase); beep(ev.type === 'distraction' ? 440 : 660, 2); }
+  flash(ev.severe || ev.type === 'speed' ? 'on' : 'amber');
+  toast(`${title}${ev.g ? ' · ' + ev.g.toFixed(2) + ' g' : ''}${ev.night ? ' · night ×1.5' : ''}`);
+  renderLive();
+}
+
+/* ---------- engine wiring ---------- */
+const engine = new TripEngine({
+  mode: settings.mode, autoEndMin: settings.autoEnd, onEvent,
+  onTripStart(){ say('Trip started'); renderLive(); },
+  onTripEnd(T){ finishTrip(T); }
+});
+function finishTrip(T){
+  store.del('tc_active');
+  if (T.distM < 50 && T.events.length === 0) { renderLive(); return; } // ignore GPS jitter "trips"
+  if (demo.running) T.demo = true;
+  trips.unshift(T); saveTrips();
+  const r = T.result, st = starsFor(r.overall);
+  say(`Trip done. ${st} star${st > 1 ? 's' : ''}.`);
+  toast(`Trip saved: ${'★'.repeat(st)} ${Math.round(r.overall)} / 100`);
+  renderLive(); renderTrips(); renderStats();
+}
+// recover a trip interrupted by a reload / phone restart
+(function recover(){
+  const a = store.get('tc_active', null);
+  if (a && a.id) { a.result = scoreTrip(a); a.recovered = true; trips.unshift(a); saveTrips(); store.del('tc_active'); }
+})();
+
+/* ---------- speed limits (OpenStreetMap) ---------- */
+const SL = { limit: null, src: 'none', name: '', pos: null, ts: 0, lastReq: 0, inflight: false, fails: 0 };
+function parseMax(v){
+  if (!v) return null;
+  v = String(v).split(';')[0].trim();
+  const named = { 'CA:ON:urban': 50, 'CA:urban': 50, 'CA:ON:rural': 80, 'CA:rural': 80, 'CA:ON:motorway': 100 };
+  if (named[v]) return named[v];
+  const m = v.match(/^(\d+)\s*(mph)?/);
+  if (!m) return null;
+  return m[2] ? Math.round(+m[1] * 1.609) : +m[1];
+}
+function inferLimit(hw){
+  if (hw === 'motorway') return 100;
+  if (hw === 'trunk') return 80;
+  if (/_link$/.test(hw)) return 60;
+  return null;
+}
+async function lookupLimit(lat, lon, kmh){
+  SL.inflight = true; SL.lastReq = Date.now();
+  const q = `[out:json][timeout:8];way(around:18,${lat},${lon})[highway~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)$"];out tags 8;`;
+  const hosts = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+  try {
+    let data = null;
+    for (const h of hosts) {
+      try { const r = await fetch(h + '?data=' + encodeURIComponent(q)); if (r.ok) { data = await r.json(); break; } } catch(e){}
+    }
+    if (!data) throw new Error('no data');
+    const cands = (data.elements || []).map(e => {
+      const t = e.tags || {};
+      const posted = parseMax(t.maxspeed);
+      return { limit: posted || inferLimit(t.highway), posted: !!posted, name: t.name || t.ref || t.highway };
+    }).filter(c => c.limit);
+    SL.pos = { lat, lon }; SL.ts = Date.now(); SL.fails = 0;
+    if (cands.length) {
+      // at intersections pick the road whose limit best matches how fast you're going
+      cands.sort((a, b) => (b.posted - a.posted) || (Math.abs(a.limit - kmh) - Math.abs(b.limit - kmh)));
+      SL.limit = cands[0].limit; SL.src = cands[0].posted ? 'map' : 'est'; SL.name = cands[0].name;
+    } else { SL.limit = null; SL.src = 'none'; SL.name = ''; }
+  } catch(e) { SL.fails++; }
+  SL.inflight = false;
+}
+function currentLimit(lat, lon, kmh){
+  if (settings.limSrc === 'off') return { limit: null, src: 'off' };
+  if (settings.limSrc === 'default') return { limit: settings.defLimit, src: 'fixed' };
+  const now = Date.now();
+  const far = !SL.pos || hav(SL.pos, { lat, lon }) > 120;
+  if (!SL.inflight && kmh > 5 && (far || now - SL.ts > 45000) && now - SL.lastReq > 8000 && navigator.onLine !== false) lookupLimit(lat, lon, kmh);
+  const fresh = SL.pos && hav(SL.pos, { lat, lon }) < 400 && now - SL.ts < 90000;
+  if (fresh && SL.limit) return { limit: SL.limit, src: SL.src, name: SL.name };
+  return { limit: settings.defLimit, src: 'fallback' };
+}
+
+/* ---------- sensors ---------- */
+let watchId = null, wakeLock = null, motionOK = false, gpsAcc = null, lastFixTs = 0, active = false;
+let grav = null, hs = 0, lastLimit = { limit: null, src: 'none' };
+function onMotion(e){
+  const ig = e.accelerationIncludingGravity; if (!ig || ig.x == null) return;
+  motionOK = true;
+  const gv = [ig.x, ig.y, ig.z];
+  if (!grav) grav = gv.slice(); else for (let i = 0; i < 3; i++) grav[i] += 0.03 * (gv[i] - grav[i]);
+  const a = (e.acceleration && e.acceleration.x != null) ? [e.acceleration.x, e.acceleration.y, e.acceleration.z] : gv.map((v, i) => v - grav[i]);
+  const gn = Math.hypot(grav[0], grav[1], grav[2]) || 9.81, u = grav.map(v => v / gn);
+  const dot = a[0]*u[0] + a[1]*u[1] + a[2]*u[2];
+  const h = Math.hypot(a[0] - dot*u[0], a[1] - dot*u[1], a[2] - dot*u[2]);
+  hs += 0.06 * (h - hs);
+  const rr = e.rotationRate || {};
+  const rot = Math.hypot(rr.alpha || 0, rr.beta || 0, rr.gamma || 0);
+  engine.motion({ t: Date.now(), h: hs, rot });
+}
+function onPos(p){
+  const c = p.coords, kmh = c.speed != null && c.speed >= 0 ? c.speed * 3.6 : 0;
+  gpsAcc = c.accuracy; lastFixTs = Date.now();
+  lastLimit = currentLimit(c.latitude, c.longitude, kmh);
+  engine.fix({ t: p.timestamp || Date.now(), lat: c.latitude, lon: c.longitude, acc: c.accuracy,
+    speed: c.speed, heading: c.heading, limit: lastLimit.limit });
+  renderLive();
+}
+function onPosErr(err){ toast(err.code === 1 ? 'Location blocked. Allow location for this site in Settings → Safari.' : 'GPS: ' + err.message); renderPills(); }
+async function requestWake(){
+  try { if ('wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; renderPills(); }); } } catch(e){ wakeLock = null; }
+  renderPills();
+}
+async function start(){
+  unlockAudio();
+  try {
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      const r = await DeviceMotionEvent.requestPermission();
+      if (r === 'granted') window.addEventListener('devicemotion', onMotion);
+      else toast('Motion access denied: using GPS only');
+    } else window.addEventListener('devicemotion', onMotion);
+  } catch(e){ window.addEventListener('devicemotion', onMotion); }
+  if (!navigator.geolocation) { toast('No GPS available in this browser'); return; }
+  watchId = navigator.geolocation.watchPosition(onPos, onPosErr, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+  active = true; requestWake(); renderLive();
+  say('Coach on. Drive safe.');
+}
+function stop(){
+  if (watchId != null) navigator.geolocation.clearWatch(watchId);
+  watchId = null; window.removeEventListener('devicemotion', onMotion);
+  if (engine.trip) engine.endTrip();
+  try { wakeLock && wakeLock.release(); } catch(e){}
+  active = false; renderLive();
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) engine.hidden(Date.now());
+  else if (active) requestWake();
+});
+document.addEventListener('touchstart', (e) => {
+  if (!active || e.target.closest('#startbtn,#endtripbtn')) return;
+  engine.touch(Date.now());
+}, { passive: true });
+setInterval(() => { if (engine.trip && !demo.running) store.set('tc_active', engine.trip); renderPills(); $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }, 10000);
+
+/* ---------- rendering helpers ---------- */
+function starHTML(n){ let s = ''; for (let i = 1; i <= 5; i++) s += i <= n ? '★' : '<span class="off">★</span>'; return `<span class="stars">${s}</span>`; }
+const fmtTime = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const fmtDate = t => new Date(t).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function renderPills(){
+  const pills = [];
+  const gpsFresh = Date.now() - lastFixTs < 15000;
+  if (!active) pills.push(['GPS off', '']);
+  else if (!gpsFresh) pills.push(['GPS searching…', 'warn']);
+  else pills.push([`GPS ±${Math.round(gpsAcc)} m`, gpsAcc <= 20 ? 'ok' : 'warn']);
+  pills.push([motionOK ? 'Motion on' : 'Motion off', motionOK ? 'ok' : (active ? 'warn' : '')]);
+  if (active) pills.push([wakeLock ? 'Screen stays on' : 'Screen may sleep', wakeLock ? 'ok' : 'warn']);
+  if (isNight(Date.now())) pills.push(['🌙 Night ×1.5', 'bad']);
+  pills.push([settings.mode === 'strict' ? 'Strict' : 'Normal', '']);
+  $('pills').innerHTML = pills.map(([t, c]) => `<span class="pill ${c}">${t}</span>`).join('');
+}
+function renderLive(){
+  const T = engine.trip;
+  const kmh = Math.round(engine.lastSpeed * 3.6);
+  $('spd').innerHTML = `${active || demo.running ? kmh : 0}<small>km/h</small>`;
+  const L = lastLimit, sign = $('sign');
+  if (L.limit && (active || demo.running)) {
+    sign.innerHTML = `${L.limit}<span>${L.src === 'map' ? 'LIMIT' : L.src === 'fixed' ? 'FIXED' : 'EST.'}</span>`;
+    sign.className = 'sign' + (kmh - L.limit > 10 ? ' over' : '');
+    $('limitsrc').textContent = L.src === 'map' ? `Posted limit${L.name ? ' · ' + L.name : ''}` :
+      L.src === 'est' ? `Estimated from road type${L.name ? ' · ' + L.name : ''}` :
+      L.src === 'fixed' ? 'Fixed limit (Settings)' : 'No map data: using fallback limit';
+  } else { sign.className = 'sign unknown'; sign.innerHTML = '—<span>LIMIT</span>'; $('limitsrc').textContent = settings.limSrc === 'off' ? 'Speed checks off' : 'Speed limit: —'; }
+
+  const btn = $('startbtn');
+  btn.textContent = active ? 'Stop coach' : 'Start driving';
+  btn.className = 'btn' + (active ? ' stop' : '');
+  $('endtripbtn').style.display = T && active ? 'block' : 'none';
+  $('autoendtxt').textContent = settings.autoEnd;
+
+  if (T) {
+    const r = scoreTrip(T), cnt = t => T.events.filter(e => e.type === t).length;
+    $('tripstate').textContent = `Trip in progress · since ${fmtTime(T.start)}`;
+    $('livescore').textContent = Math.round(r.overall);
+    $('livestars').innerHTML = starHTML(starsFor(r.overall));
+    $('livelabel').textContent = labelFor(r.overall);
+    ['brake', 'accel', 'corner', 'speed', 'distraction'].forEach(t => $('c-' + t).textContent = cnt(t));
+    $('c-km').textContent = r.km.toFixed(1);
+    $('c-time').textContent = `km · ${Math.round(r.mins)} min`;
+  } else {
+    $('tripstate').textContent = active ? 'Waiting: trip starts above 15 km/h' : 'Not driving';
+    $('livescore').textContent = '—'; $('livestars').innerHTML = ''; $('livelabel').textContent = '';
+    ['brake', 'accel', 'corner', 'speed', 'distraction'].forEach(t => $('c-' + t).textContent = 0);
+    $('c-km').textContent = '0.0'; $('c-time').textContent = 'km · 0 min';
+  }
+  renderPills();
+}
+
+/* ---------- trips ---------- */
+let openTrip = null;
+function renderTrips(){
+  const W = $('tripsWrap');
+  if (openTrip) { renderTripDetail(W, trips.find(t => t.id === openTrip)); return; }
+  if (!trips.length) { W.innerHTML = `<h2>Trips</h2><div class="empty">No trips yet.<br>Start the coach and drive, or run a demo trip from Settings.</div>`; return; }
+  let html = '<h2>Trips</h2>', lastDay = '';
+  for (const T of trips) {
+    const r = T.result || scoreTrip(T), day = fmtDate(T.start);
+    if (day !== lastDay) { html += `<div class="muted small" style="margin:14px 2px 2px">${day}</div>`; lastDay = day; }
+    const night = T.nightSec > 0.3 * T.movingSec && T.movingSec > 0;
+    html += `<div class="trip" data-id="${T.id}">
+      <div class="l"><b>${fmtTime(T.start)} – ${fmtTime(T.end)}</b>
+        <span class="muted small">${r.km.toFixed(1)} km · ${Math.round(r.mins)} min · ${T.events.length} event${T.events.length === 1 ? '' : 's'}</span>
+        ${night ? '<span class="tag night">night</span>' : ''}${r.short ? '<span class="tag">under 1 km</span>' : ''}${T.demo ? '<span class="tag">demo</span>' : ''}</div>
+      <div class="r">${starHTML(starsFor(r.overall))}<div class="muted small">${labelFor(r.overall)} · ${Math.round(r.overall)}</div></div></div>`;
+  }
+  W.innerHTML = html;
+  W.querySelectorAll('.trip').forEach(el => el.onclick = () => { openTrip = el.dataset.id; renderTrips(); window.scrollTo(0, 0); });
+}
+function renderTripDetail(W, T){
+  if (!T) { openTrip = null; renderTrips(); return; }
+  const r = T.result || scoreTrip(T);
+  let html = `<button class="back" id="backBtn">‹ All trips</button>
+    <div class="card"><div class="livescore"><div><div class="muted small">${fmtDate(T.start)} · ${fmtTime(T.start)} – ${fmtTime(T.end)}</div>
+    <div class="big">${Math.round(r.overall)}</div><div class="muted small">${r.km.toFixed(1)} km · ${Math.round(r.mins)} min · top ${T.maxKmh} km/h</div></div>
+    <div style="text-align:right">${starHTML(starsFor(r.overall))}<div class="muted small">${labelFor(r.overall)}</div></div></div>
+    ${r.short ? '<p class="note">Under 1 km: TD ignores very short trips, so this one probably won\'t count.</p>' : ''}
+    ${T.gaps ? `<p class="note">The coach was in the background ${T.gaps} time${T.gaps > 1 ? 's' : ''} during this trip, so some driving wasn't watched.</p>` : ''}</div>`;
+  for (const k of FACTORS) {
+    const m = FACTOR_META[k], v = r.factors[k];
+    const evs = T.events.filter(e => e.type === k);
+    let detail = '';
+    if (k === 'speed') detail = v == null ? 'No speed-limit data' : `${Math.round(T.speed.minorSec + T.speed.majorSec)} s over limit`;
+    else if (k === 'duration') detail = `${Math.round(r.mins)} min`;
+    else detail = evs.length ? `${evs.length} event${evs.length > 1 ? 's' : ''}` : 'None';
+    html += `<div class="factor"><div class="h"><div class="n"><span class="ic">${m.icon}</span>${m.name}</div>
+      <div class="r">${v == null ? '<span class="muted">—</span>' : starHTML(starsFor(v))}<small>${v == null ? '' : labelFor(v) + ' · '}${detail}</small></div></div>
+      ${v != null && v < 99.5 ? `<div class="tip">${m.tip}</div>` : ''}</div>`;
+  }
+  if (T.events.length) {
+    html += `<h2>What happened</h2><div class="card">`;
+    for (const e of T.events.slice().sort((a, b) => a.t - b.t)) {
+      const what = e.type === 'speed' ? `Speeding: up to ${e.maxOver} over ${e.limit}` :
+        e.type === 'distraction' ? (e.why || 'Phone use') :
+        `${EV_TEXT[e.type][0]}${e.g ? ' · ' + e.g.toFixed(2) + ' g' : ''}`;
+      const map = e.lat != null ? `<a href="https://maps.google.com/?q=${e.lat},${e.lon}" target="_blank" rel="noopener">Map ›</a>` : '';
+      html += `<div class="ev"><div><b>${fmtTime(e.t)}</b> · ${esc(what)} <span class="muted">at ${e.kmh} km/h</span>
+        ${e.severe ? '<span class="tag" style="color:var(--red)">severe</span>' : ''}${e.night ? '<span class="tag night">night ×1.5</span>' : ''}</div>${map}</div>`;
+    }
+    html += `</div>`;
+  }
+  html += `<button class="btn sec" id="delTrip" style="color:var(--red)">Delete this trip</button>`;
+  W.innerHTML = html;
+  $('backBtn').onclick = () => { openTrip = null; renderTrips(); };
+  const del = $('delTrip');
+  del.onclick = () => {
+    if (del.dataset.armed) { trips = trips.filter(t => t.id !== T.id); saveTrips(); openTrip = null; renderTrips(); renderStats(); }
+    else { del.dataset.armed = '1'; del.textContent = 'Tap again to delete'; }
+  };
+}
+
+/* ---------- stats ---------- */
+function renderStats(){
+  const W = $('statsWrap');
+  const real = trips.filter(t => !t.demo);
+  if (!real.length) { W.innerHTML = `<h2>Your driving</h2><div class="empty">Stats show up after your first real trip.</div>`; return; }
+  const agg = list => {
+    let km = 0, ws = 0; const f = {}, fw = {};
+    for (const T of list) {
+      const r = T.result || scoreTrip(T), w = Math.max(r.km, 0.1);
+      km += r.km; ws += r.overall * w;
+      for (const k of FACTORS) if (r.factors[k] != null) { f[k] = (f[k] || 0) + r.factors[k] * w; fw[k] = (fw[k] || 0) + w; }
+    }
+    const tw = list.reduce((s, T) => s + Math.max((T.result || scoreTrip(T)).km, 0.1), 0);
+    const out = { km, overall: ws / tw, f: {} };
+    for (const k of FACTORS) out.f[k] = fw[k] ? f[k] / fw[k] : null;
+    return out;
+  };
+  const all = agg(real);
+  const wk = real.filter(t => Date.now() - t.start < 7 * 864e5);
+  const week = wk.length ? agg(wk) : null;
+  const counts = {}; real.forEach(T => T.events.forEach(e => counts[e.type] = (counts[e.type] || 0) + 1));
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  const fiveStar = real.filter(T => starsFor((T.result || scoreTrip(T)).overall) === 5).length;
+  let html = `<h2>Your driving</h2>
+  <div class="card"><div class="livescore"><div><div class="muted small">Average, weighted by distance</div><div class="big">${Math.round(all.overall)}</div></div>
+    <div style="text-align:right">${starHTML(starsFor(all.overall))}<div class="muted small">${labelFor(all.overall)}</div></div></div>
+    <div class="grid"><div class="cell"><b>${all.km.toFixed(0)}</b><span>km coached</span></div>
+    <div class="cell"><b>${real.length}</b><span>trips</span></div>
+    <div class="cell"><b>${Math.round(fiveStar / real.length * 100)}%</b><span>5-star trips</span></div></div></div>`;
+  if (week) html += `<div class="card"><div class="livescore"><div><div class="muted small">Last 7 days · ${week.km.toFixed(0)} km</div><div class="big">${Math.round(week.overall)}</div></div>
+    <div style="text-align:right">${starHTML(starsFor(week.overall))}<div class="muted small">${labelFor(week.overall)}</div></div></div></div>`;
+  html += `<h2>By factor</h2><div class="card">`;
+  for (const k of FACTORS) {
+    const v = all.f[k];
+    html += `<div class="row"><div>${FACTOR_META[k].icon} ${FACTOR_META[k].name}</div><div style="text-align:right">${v == null ? '<span class="muted">no data</span>' : starHTML(starsFor(v)) + `<div class="muted small">${Math.round(v)}</div>`}</div></div>`;
+  }
+  html += `</div>`;
+  if (top) html += `<div class="card"><b>Work on: ${FACTOR_META[top[0]].name}</b><p class="note" style="margin:6px 0 0">${top[1]} ${EV_TEXT[top[0]][0].toLowerCase()} events so far. ${FACTOR_META[top[0]].tip}</p></div>`;
+  W.innerHTML = html;
+}
+
+/* ---------- settings ---------- */
+function renderSettings(){
+  document.querySelectorAll('#set-sens button').forEach(b => b.classList.toggle('on', b.dataset.v === settings.mode));
+  document.querySelectorAll('#set-limsrc button').forEach(b => b.classList.toggle('on', b.dataset.v === settings.limSrc));
+  $('set-beep').classList.toggle('on', settings.beep);
+  $('set-voice').classList.toggle('on', settings.voice);
+  $('set-autoend').value = settings.autoEnd;
+  $('set-deflimit').value = settings.defLimit;
+}
+document.querySelectorAll('#set-sens button').forEach(b => b.onclick = () => { settings.mode = b.dataset.v; engine.opts.mode = settings.mode; saveSettings(); renderSettings(); renderPills(); });
+document.querySelectorAll('#set-limsrc button').forEach(b => b.onclick = () => { settings.limSrc = b.dataset.v; saveSettings(); renderSettings(); });
+$('set-beep').onclick = () => { settings.beep = !settings.beep; saveSettings(); renderSettings(); };
+$('set-voice').onclick = () => { settings.voice = !settings.voice; saveSettings(); renderSettings(); };
+$('set-autoend').onchange = e => { settings.autoEnd = Math.max(1, Math.min(30, +e.target.value || 5)); engine.opts.autoEndMin = settings.autoEnd; saveSettings(); renderSettings(); renderLive(); };
+$('set-deflimit').onchange = e => { settings.defLimit = Math.max(20, Math.min(120, +e.target.value || 50)); saveSettings(); renderSettings(); };
+
+$('copyBtn').onclick = async () => {
+  const json = JSON.stringify(trips);
+  try { await navigator.clipboard.writeText(json); toast('Trips copied'); }
+  catch(e){ const box = $('exportBox'); box.style.display = 'block'; box.value = json; box.select(); toast('Select all and copy'); }
+};
+$('csvBtn').onclick = () => {
+  const rows = [['date', 'start', 'end', 'km', 'minutes', 'overall', 'stars', 'accel', 'brake', 'corner', 'distraction', 'duration', 'speed', 'events', 'demo']];
+  for (const T of trips) {
+    const r = T.result || scoreTrip(T), f = r.factors, n = v => v == null ? '' : Math.round(v);
+    rows.push([new Date(T.start).toLocaleDateString(), fmtTime(T.start), fmtTime(T.end), r.km.toFixed(2), Math.round(r.mins), n(r.overall), starsFor(r.overall),
+      n(f.accel), n(f.brake), n(f.corner), n(f.distraction), n(f.duration), n(f.speed), T.events.length, T.demo ? 'yes' : '']);
+  }
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'driving-coach.csv'; document.body.appendChild(a); a.click(); a.remove();
+};
+$('wipeBtn').onclick = function(){
+  if (this.dataset.armed) { trips = []; saveTrips(); this.dataset.armed = ''; this.textContent = 'Delete all trips'; toast('All trips deleted'); renderTrips(); renderStats(); }
+  else { this.dataset.armed = '1'; this.textContent = 'Tap again to delete everything'; }
+};
+
+/* ---------- demo trip ---------- */
+const demo = { running: false, quiet: false };
+$('demoBtn').onclick = () => {
+  if (active || demo.running) { toast('Stop the coach first'); return; }
+  unlockAudio();
+  demo.running = true; demo.quiet = true;
+  // synthetic route: ~5 min of city driving with one of each problem
+  const plan = []; let v = 0, hd = 90;
+  const push = (secs, fn) => { for (let i = 0; i < secs; i++) { fn(i); plan.push({ v, hd }); } };
+  push(3, () => { v = 0; });
+  push(12, () => { v = Math.min(14, v + 1.3); });           // gentle start
+  push(40, () => { v = 14; });                               // cruise 50 km/h
+  push(3, () => { v = Math.max(0, v - 4.2); });              // hard brake
+  push(5, () => { v = 0; });
+  push(3, () => { v += 3.6; });                              // fast start
+  push(10, () => { v = Math.min(13, v + 1); });
+  push(4, () => { v = 9; hd += 32; });                       // sharp turn
+  push(30, () => { v = 13.5; });
+  push(14, () => { v = 19; });                               // 68 in a 50
+  push(60, () => { v = 13.5; });
+  push(8, () => { v = Math.max(0, v - 1.7); });              // smooth stop
+  const L = { limit: 50, src: 'fixed' }; lastLimit = L;
+  let t = Date.now() - plan.length * 1000, lat = 42.9849, lon = -81.2453, i = 0;
+  showView('drive');
+  const tick = () => {
+    if (i >= plan.length) {
+      const T = engine.endTrip(t); demo.running = false; demo.quiet = false; lastLimit = { limit: null, src: 'none' }; engine.reset(); renderLive();
+      if (T) { openTrip = T.id; showView('trips'); }
+      return;
+    }
+    const p = plan[i++]; t += 1000;
+    const r = p.hd * Math.PI / 180;
+    lat += Math.cos(r) * p.v / 111320; lon += Math.sin(r) * p.v / (111320 * Math.cos(lat * Math.PI / 180));
+    engine.fix({ t, lat, lon, acc: 5, speed: p.v, heading: p.v > 1 ? p.hd % 360 : null, limit: L.limit });
+    renderLive();
+    setTimeout(tick, 40);
+  };
+  tick();
+};
+
+/* ---------- navigation ---------- */
+function showView(v){
+  document.querySelectorAll('.view').forEach(s => s.classList.toggle('active', s.id === 'v-' + v));
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.v === v));
+  if (v === 'trips') renderTrips();
+  if (v === 'stats') renderStats();
+  if (v === 'settings') renderSettings();
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => { if (b.dataset.v === 'trips') openTrip = null; showView(b.dataset.v); });
+$('startbtn').onclick = () => active ? stop() : start();
+$('endtripbtn').onclick = () => { if (engine.trip) engine.endTrip(); };
+
+$('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+renderLive(); renderSettings();
+})();
+</script>
+</body>
+</html>
