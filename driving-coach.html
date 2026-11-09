@@ -102,12 +102,13 @@ textarea{width:100%;height:120px;background:var(--card2);color:var(--text);borde
 <div class="flash" id="flash"></div>
 <div class="toast" id="toast"></div>
 
-<div class="topbar"><h1>Driving Coach</h1><span class="muted small" id="clock"></span></div>
+<div class="topbar"><h1>Driving Coach</h1><div style="display:flex;align-items:center;gap:12px"><span class="muted small" id="clock"></span><button id="muteBtn" style="background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:7px 12px;font-size:15px;font-weight:600">🔊 Sound on</button></div></div>
 <div class="pills" id="pills"></div>
 
 <!-- DRIVE -->
 <section class="view active" id="v-drive"><div class="wrap">
   <div class="card">
+    <div id="roadname" style="font-size:22px;font-weight:700;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📍 —</div>
     <div class="speedrow">
       <div><div class="speed" id="spd">0<small>km/h</small></div>
         <div class="muted small" id="limitsrc">Speed limit: —</div></div>
@@ -152,6 +153,7 @@ textarea{width:100%;height:120px;background:var(--card2);color:var(--text);borde
       <div class="seg" id="set-sens"><button data-v="strict">Strict</button><button data-v="normal">Normal</button></div></div>
     <div class="row"><div>Beep on events</div><button class="switch" id="set-beep"></button></div>
     <div class="row"><div>Voice alerts</div><button class="switch" id="set-voice"></button></div>
+    <div class="row"><div>Say new speed limit<div class="note">Speaks when the limit changes on a new road.</div></div><button class="switch" id="set-saylimit"></button></div>
     <div class="row"><div>Auto-end trip after parked (min)</div><input type="number" id="set-autoend" min="1" max="30"></div>
   </div>
   <h2>Speed limits</h2>
@@ -381,7 +383,7 @@ const store = {
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
   del(k){ try { localStorage.removeItem(k); } catch(e){} }
 };
-let settings = Object.assign({ mode:'strict', beep:true, voice:true, autoEnd:5, limSrc:'auto', defLimit:50 }, store.get('tc_settings', {}));
+let settings = Object.assign({ muted:false, mode:'strict', beep:true, voice:true, sayLimit:true, autoEnd:5, limSrc:'auto', defLimit:50 }, store.get('tc_settings', {}));
 let trips = store.get('tc_trips', []);
 const saveSettings = () => store.set('tc_settings', settings);
 const saveTrips = () => store.set('tc_trips', trips);
@@ -393,7 +395,7 @@ function unlockAudio(){
   try { if (window.speechSynthesis) { const u = new SpeechSynthesisUtterance(''); speechSynthesis.speak(u); } } catch(e){}
 }
 function beep(freq, n){
-  if (!settings.beep || !ac) return;
+  if (settings.muted || !settings.beep || !ac) return;
   for (let i = 0; i < n; i++) {
     const o = ac.createOscillator(), g = ac.createGain(), t0 = ac.currentTime + i * 0.22;
     o.frequency.value = freq; o.type = 'square';
@@ -403,7 +405,7 @@ function beep(freq, n){
   }
 }
 function say(text){
-  if (!settings.voice || !window.speechSynthesis) return;
+  if (settings.muted || !settings.voice || !window.speechSynthesis) return;
   try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 1.05; speechSynthesis.speak(u); } catch(e){}
 }
 let toastT = null;
@@ -482,7 +484,29 @@ function saveArea(area){
   cache.unshift(area); cache = cache.slice(0, 6);
   while (cache.length) { try { localStorage.setItem('tc_map_cache', JSON.stringify(cache)); break; } catch(e){ cache.pop(); } }
 }
-function useArea(area){ SL.ways = area.ways; SL.center = area.center; SL.radius = area.radius; SL.status = 'ok'; SL.err = ''; }
+const roadKey = w => w.name ? w.name.toLowerCase() + '|' + String(w.hw).replace('_link', '') : null;
+function endDist(a, b){
+  let m = Infinity;
+  for (const p of [a.pts[0], a.pts[a.pts.length - 1]]) for (const q of b.pts) m = Math.min(m, hav({ lat: p[0], lon: p[1] }, { lat: q[0], lon: q[1] }));
+  return m;
+}
+// OpenStreetMap splits a street into many pieces and often tags the limit on only some of them:
+// give an untagged piece the limit of the nearest tagged piece of the same street.
+function enrichWays(ways){
+  const byKey = {};
+  for (const w of ways) { const k = roadKey(w); if (k && w.posted) (byKey[k] = byKey[k] || []).push(w); }
+  for (const w of ways) {
+    w.sameAs = null;
+    if (w.posted) continue;
+    const list = byKey[roadKey(w)];
+    if (!list) continue;
+    let best = null, bd = Infinity;
+    for (const t of list) { const d = endDist(w, t); if (d < bd) { bd = d; best = t; } }
+    if (best && bd < 1500) w.sameAs = best.posted;
+  }
+  return ways;
+}
+function useArea(area){ enrichWays(area.ways); SL.ways = area.ways; SL.center = area.center; SL.radius = area.radius; SL.status = 'ok'; SL.err = ''; }
 async function loadArea(lat, lon, kmh){
   const hit = cachedArea(lat, lon);
   if (hit) { useArea(hit); renderPills(); return; }
@@ -531,8 +555,8 @@ function nearestOnWay(lat, lon, w){
   return { d: best, brg };
 }
 function matchRoad(lat, lon, hd, kmh){
-  let best = null;
-  const useHd = hd != null && !isNaN(hd) && kmh > 10;
+  let best = null, curOk = false;
+  const useHd = hd != null && !isNaN(hd) && hd >= 0 && kmh > 10;
   for (const w of SL.ways) {
     const { d, brg } = nearestOnWay(lat, lon, w);
     if (d > 40) continue;
@@ -540,17 +564,28 @@ function matchRoad(lat, lon, hd, kmh){
     if (useHd) {
       let diff = Math.abs(angDiff(brg, hd));
       if (!w.oneway) diff = Math.min(diff, 180 - diff);
-      if (diff > 45) continue;              // road runs the wrong way: it's a cross street
+      if (diff > 45) continue;              // runs across your path: a cross street
       cost += diff * 0.5;
     }
-    if (SL.cur && SL.cur.id === w.id) cost -= 10; // stick to the road you were on
+    if (SL.cur && SL.cur.id === w.id) { cost -= 10; curOk = true; }
+    if (SL.cur && w.name && w.name === SL.cur.name) cost -= 6; // next piece of the same street
     if (!best || cost < best.cost) best = { w, cost };
   }
-  return best ? best.w : null;
+  if (!best) return null;
+  // switch roads only after 2 fixes in a row agree, unless the old road no longer fits at all
+  if (SL.cur && best.w.id !== SL.cur.id && curOk && best.w.name !== SL.cur.name) {
+    if (SL.pendingId === best.w.id) SL.pendingN++; else { SL.pendingId = best.w.id; SL.pendingN = 1; }
+    if (SL.pendingN < 2) return SL.cur;
+  }
+  SL.pendingId = null;
+  return best.w;
 }
 function limitForWay(w){
   if (overrides[w.id]) return { limit: overrides[w.id], src: 'you' };
   if (w.posted) return { limit: w.posted, src: 'map' };
+  const k = roadKey(w); // your correction covers the street's untagged pieces; tagged pieces keep their own limit
+  if (k && overrides['n:' + k]) return { limit: overrides['n:' + k], src: 'you' };
+  if (w.sameAs) return { limit: w.sameAs, src: 'street' };
   const inf = inferLimit(w.hw);
   if (inf) return { limit: inf, src: 'est' };
   return { limit: settings.defLimit, src: 'fallback' };
@@ -572,7 +607,9 @@ function currentLimit(lat, lon, kmh, hd){
   return SL.curLim;
 }
 function setOverride(wayId, v){
-  if (v) overrides[wayId] = v; else delete overrides[wayId];
+  const w0 = SL.ways.find(x => x.id === wayId), k = w0 ? roadKey(w0) : null;
+  if (v) { overrides[wayId] = v; if (k) overrides['n:' + k] = v; }
+  else { delete overrides[wayId]; if (k) delete overrides['n:' + k]; }
   store.set('tc_limit_overrides', overrides);
   if (SL.curLim && SL.curLim.wayId === wayId) { const w = SL.ways.find(x => x.id === wayId); if (w) SL.curLim = Object.assign(limitForWay(w), { name: SL.curLim.name, wayId }); lastLimit = SL.curLim; }
 }
@@ -597,7 +634,10 @@ function onMotion(e){
 function onPos(p){
   const c = p.coords, kmh = c.speed != null && c.speed >= 0 ? c.speed * 3.6 : 0;
   gpsAcc = c.accuracy; lastFixTs = Date.now();
+  const prevLim = lastLimit;
   lastLimit = currentLimit(c.latitude, c.longitude, kmh, c.heading);
+  if (settings.sayLimit && engine.trip && lastLimit.limit && lastLimit.src !== 'fallback' && prevLim && prevLim.limit && lastLimit.limit !== prevLim.limit
+      && Date.now() - (onPos.saidAt || 0) > 15000) { onPos.saidAt = Date.now(); say(`Speed limit ${lastLimit.limit}`); }
   engine.fix({ t: p.timestamp || Date.now(), lat: c.latitude, lon: c.longitude, acc: c.accuracy,
     speed: c.speed, heading: c.heading, limit: lastLimit.limit, limitSrc: lastLimit.src, wayId: lastLimit.wayId, road: lastLimit.name });
   renderLive();
@@ -663,16 +703,18 @@ function renderLive(){
   $('spd').innerHTML = `${active || demo.running ? kmh : 0}<small>km/h</small>`;
   const L = lastLimit, sign = $('sign');
   if (L.limit && (active || demo.running)) {
-    const tag = { map: 'POSTED', est: 'EST.', you: 'YOURS', fixed: 'FIXED', fallback: 'GUESS' }[L.src] || 'LIMIT';
+    const tag = { map: 'POSTED', street: 'POSTED*', est: 'EST.', you: 'YOURS', fixed: 'FIXED', fallback: 'GUESS' }[L.src] || 'LIMIT';
     sign.innerHTML = `${L.limit}<span>${tag}</span>`;
     sign.className = 'sign' + (kmh - L.limit > 10 ? ' over' : '') + (L.src === 'fallback' ? ' unknown' : '');
-    const road = L.name ? ' · ' + L.name : '';
+    const road = '';
+    $('roadname').textContent = '📍 ' + (L.name ? L.name.replace(/^./, c => c.toUpperCase()) : (settings.limSrc === 'auto' ? 'Finding your road…' : '—'));
     $('limitsrc').textContent = L.src === 'map' ? `Posted limit${road}` :
       L.src === 'you' ? `Your correction${road}` :
+      L.src === 'street' ? 'Posted limit from the same street nearby' :
       L.src === 'est' ? `Estimated from road type${road}` :
       L.src === 'fixed' ? 'Fixed limit (Settings)' :
-      `No limit in map data${road}: using ${settings.defLimit}. Tap sign to fix when stopped`;
-  } else { sign.className = 'sign unknown'; sign.innerHTML = '—<span>LIMIT</span>'; $('limitsrc').textContent = settings.limSrc === 'off' ? 'Speed checks off' : 'Speed limit: —'; }
+      `No limit in map data: using ${settings.defLimit}. Tap sign to fix when stopped`;
+  } else { $('roadname').textContent = '📍 —'; sign.className = 'sign unknown'; sign.innerHTML = '—<span>LIMIT</span>'; $('limitsrc').textContent = settings.limSrc === 'off' ? 'Speed checks off' : 'Speed limit: —'; }
 
   const btn = $('startbtn');
   btn.textContent = active ? 'Stop coach' : 'Start driving';
@@ -743,7 +785,7 @@ function renderTripDetail(W, T){
     html += `<h2>Roads &amp; limits used</h2><div class="card">`;
     for (const [id, R] of roads) {
       const fixed = overrides[id];
-      html += `<div class="ev"><div><b>${esc(R.name)}</b> · ${fixed ? fixed + ' <span class="tag">yours</span>' : R.limit + ` <span class="tag">${{ map: 'posted', est: 'est.', you: 'yours', fallback: 'guess' }[R.src] || R.src}</span>`}
+      html += `<div class="ev"><div><b>${esc(R.name)}</b> · ${fixed ? fixed + ' <span class="tag">yours</span>' : R.limit + ` <span class="tag">${{ map: 'posted', street: 'posted*', est: 'est.', you: 'yours', fallback: 'guess' }[R.src] || R.src}</span>`}
         <span class="muted">${Math.round(R.sec / 60 * 10) / 10} min${R.overSec ? ' · ' + Math.round(R.overSec) + ' s over' : ''}</span></div>
         <a href="#" data-way="${id}" data-name="${esc(R.name)}" data-lim="${fixed || R.limit}" class="fixlim">Fix ›</a></div>`;
     }
@@ -819,6 +861,7 @@ function renderSettings(){
   document.querySelectorAll('#set-limsrc button').forEach(b => b.classList.toggle('on', b.dataset.v === settings.limSrc));
   $('set-beep').classList.toggle('on', settings.beep);
   $('set-voice').classList.toggle('on', settings.voice);
+  $('set-saylimit').classList.toggle('on', settings.sayLimit);
   $('set-autoend').value = settings.autoEnd;
   $('set-deflimit').value = settings.defLimit;
 }
@@ -826,6 +869,7 @@ document.querySelectorAll('#set-sens button').forEach(b => b.onclick = () => { s
 document.querySelectorAll('#set-limsrc button').forEach(b => b.onclick = () => { settings.limSrc = b.dataset.v; saveSettings(); renderSettings(); });
 $('set-beep').onclick = () => { settings.beep = !settings.beep; saveSettings(); renderSettings(); };
 $('set-voice').onclick = () => { settings.voice = !settings.voice; saveSettings(); renderSettings(); };
+$('set-saylimit').onclick = () => { settings.sayLimit = !settings.sayLimit; saveSettings(); renderSettings(); };
 $('set-autoend').onchange = e => { settings.autoEnd = Math.max(1, Math.min(30, +e.target.value || 5)); engine.opts.autoEndMin = settings.autoEnd; saveSettings(); renderSettings(); renderLive(); };
 $('set-deflimit').onchange = e => { settings.defLimit = Math.max(20, Math.min(120, +e.target.value || 50)); saveSettings(); renderSettings(); };
 
@@ -901,6 +945,9 @@ function showView(v){
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => { if (b.dataset.v === 'trips') openTrip = null; showView(b.dataset.v); });
 $('startbtn').onclick = () => active ? stop() : start();
+function renderMute(){ $('muteBtn').textContent = settings.muted ? '🔇 Muted' : '🔊 Sound on'; $('muteBtn').style.color = settings.muted ? 'var(--amber)' : 'var(--text)'; }
+$('muteBtn').onclick = () => { settings.muted = !settings.muted; saveSettings(); renderMute(); if (!settings.muted) { unlockAudio(); say('Sound on'); } else { try { speechSynthesis.cancel(); } catch(e){} } };
+renderMute();
 function openPicker(wayId, name, cur){
   const P = $('picker');
   $('pickerTitle').textContent = `Correct the limit for ${name || 'this road'} (saved for next time):`;
