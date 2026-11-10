@@ -104,7 +104,7 @@ textarea{width:100%;height:120px;background:var(--card2);color:var(--text);borde
 <div class="flash" id="flash"></div>
 <div class="toast" id="toast"></div>
 
-<div class="topbar"><h1>Driving Coach <span class="muted" style="font-size:12px;font-weight:500">v2</span></h1><div style="display:flex;align-items:center;gap:12px"><span class="muted small" id="clock"></span><button id="muteBtn" style="background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:7px 12px;font-size:15px;font-weight:600">🔊 Sound on</button></div></div>
+<div class="topbar"><h1>Driving Coach <span class="muted" style="font-size:12px;font-weight:500">v2.1</span></h1><div style="display:flex;align-items:center;gap:12px"><span class="muted small" id="clock"></span><button id="muteBtn" style="background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:7px 12px;font-size:15px;font-weight:600">🔊 Sound on</button></div></div>
 <div class="pills" id="pills"></div>
 
 <!-- DRIVE -->
@@ -167,7 +167,13 @@ textarea{width:100%;height:120px;background:var(--card2);color:var(--text);borde
   <h2>Data</h2>
   <div class="card">
     <button class="btn sec" id="demoBtn" style="margin-top:0">Run a demo trip (simulated)</button>
-    <button class="btn sec" id="copyBtn">Copy all trips (JSON)</button>
+    <button class="btn sec" id="copyBtn">Copy my data (to move to another app/browser)</button>
+    <button class="btn sec" id="importBtn">Import data</button>
+    <div id="importBox" style="display:none;margin-top:10px">
+      <label for="importText" class="note">Paste the data you copied from the other app/browser:</label>
+      <textarea id="importText" style="margin-top:6px"></textarea>
+      <button class="btn" id="importGo" style="margin-top:8px">Import</button>
+    </div>
     <button class="btn sec" id="csvBtn">Download trips (CSV)</button>
     <button class="btn sec" id="wipeBtn" style="color:var(--red)">Delete all trips</button>
     <textarea id="exportBox" style="display:none;margin-top:10px" readonly></textarea>
@@ -926,9 +932,32 @@ $('set-autoend').onchange = e => { settings.autoEnd = Math.max(1, Math.min(30, +
 $('set-deflimit').onchange = e => { settings.defLimit = Math.max(20, Math.min(120, +e.target.value || 50)); saveSettings(); renderSettings(); };
 
 $('copyBtn').onclick = async () => {
-  const json = JSON.stringify(trips);
-  try { await navigator.clipboard.writeText(json); toast('Trips copied'); }
+  const json = JSON.stringify({ app: 'driving-coach', v: 1, trips, overrides });
+  try { await navigator.clipboard.writeText(json); toast(`Copied ${trips.length} trips. Now open the other app → Settings → Import data`); }
   catch(e){ const box = $('exportBox'); box.style.display = 'block'; box.value = json; box.select(); toast('Select all and copy'); }
+};
+$('importBtn').onclick = async () => {
+  const box = $('importBox'); box.style.display = 'block';
+  try { const t = await navigator.clipboard.readText(); if (t && t.trim().startsWith('{') || (t && t.trim().startsWith('['))) $('importText').value = t; } catch(e){}
+  $('importText').focus();
+};
+$('importGo').onclick = () => {
+  let data;
+  try { data = JSON.parse($('importText').value.trim()); } catch(e){ toast("That doesn't look like Driving Coach data"); return; }
+  const inTrips = Array.isArray(data) ? data : (data && Array.isArray(data.trips) ? data.trips : null);
+  if (!inTrips) { toast("That doesn't look like Driving Coach data"); return; }
+  const have = new Set(trips.map(t => t.id));
+  let added = 0;
+  for (const T of inTrips) if (T && T.id && T.start && Array.isArray(T.events) && !have.has(T.id)) { trips.push(T); have.add(T.id); added++; }
+  trips.sort((a, b) => b.start - a.start); saveTrips();
+  let fixes = 0;
+  if (data && data.overrides && typeof data.overrides === 'object') {
+    for (const [k, v] of Object.entries(data.overrides)) if (+v > 0 && overrides[k] == null) { overrides[k] = +v; fixes++; }
+    store.set('tc_limit_overrides', overrides);
+  }
+  $('importText').value = ''; $('importBox').style.display = 'none';
+  toast(`Imported ${added} trip${added === 1 ? '' : 's'}${fixes ? ` and ${fixes} speed-limit fix${fixes === 1 ? '' : 'es'}` : ''}`);
+  renderTrips(); renderStats();
 };
 $('csvBtn').onclick = () => {
   const rows = [['date', 'start', 'end', 'km', 'minutes', 'overall', 'stars', 'accel', 'brake', 'corner', 'distraction', 'duration', 'speed', 'events', 'demo']];
