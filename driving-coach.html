@@ -104,7 +104,7 @@ textarea{width:100%;height:120px;background:var(--card2);color:var(--text);borde
 <div class="flash" id="flash"></div>
 <div class="toast" id="toast"></div>
 
-<div class="topbar"><h1>Driving Coach <span class="muted" style="font-size:12px;font-weight:500">v2.2</span></h1><div style="display:flex;align-items:center;gap:12px"><span class="muted small" id="clock"></span><button id="muteBtn" style="background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:7px 12px;font-size:15px;font-weight:600">🔊 Sound on</button></div></div>
+<div class="topbar"><h1>Driving Coach <span class="muted" style="font-size:12px;font-weight:500">v2.3</span></h1><div style="display:flex;align-items:center;gap:12px"><span class="muted small" id="clock"></span><button id="muteBtn" style="background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:7px 12px;font-size:15px;font-weight:600">🔊 Sound on</button></div></div>
 <div class="pills" id="pills"></div>
 <div class="wrap" id="updateBar" style="display:none;padding-bottom:0"><button class="btn" id="updateBtn" style="margin-top:6px;padding:14px;font-size:16px;background:var(--blue)">New version available: tap to update</button></div>
 
@@ -181,7 +181,7 @@ textarea{width:100%;height:120px;background:var(--card2);color:var(--text);borde
   </div>
   <p class="note">How scoring works: each trip gets 1–5 stars on the same six factors TD lists (acceleration, braking, cornering, distractions, duration, speed). Events between 11 PM and 5 AM count 1.5× and trips over 90 minutes start losing duration points, matching TD's descriptions. TD's exact formula isn't public, so these are coaching estimates, not TD's numbers.
   Hard brake ≈ 0.30 g (strict) / 0.35 g (normal); fast start ≈ 0.25 / 0.30 g; sharp turn ≈ 0.30 / 0.37 g; speeding = 10+ km/h over the limit for 5+ seconds.
-  Data stays on this phone only.</p>
+  Data stays on this phone only.<br><br>Speed-limit data: City of London Open Data (Speed Limits); Ontario Road Network, Ontario Ministry of Natural Resources, under the Open Government Licence – Ontario; map data © OpenStreetMap contributors (ODbL). Signs on the road always take priority.</p>
 </div></section>
 
 <nav>
@@ -591,7 +591,7 @@ function matchRoad(lat, lon, hd, kmh){
 }
 function limitForWay(w){
   if (overrides[w.id]) return { limit: overrides[w.id], src: 'you' };
-  if (w.posted) return { limit: w.posted, src: 'map' };
+  if (w.posted) return { limit: w.posted, src: ({ c: 'city', l: 'law', o: 'ontario', m: 'map' })[w.from] || 'map' };
   const k = roadKey(w); // your correction covers the street's untagged pieces; tagged pieces keep their own limit
   if (k && overrides['n:' + k]) return { limit: overrides['n:' + k], src: 'you' };
   if (w.sameAs) return { limit: w.sameAs, src: 'street' };
@@ -612,7 +612,7 @@ async function loadIndex(){
 }
 function decodeWay(r){
   const pts = []; for (let i = 0; i < r[5].length; i += 2) pts.push([r[5][i] / 1e5, r[5][i+1] / 1e5]);
-  return { id: r[0], hw: r[1], name: r[2] || '', posted: r[3] || null, oneway: !!r[4], pts };
+  return { id: r[0], hw: r[1], name: r[2] || '', posted: r[3] || null, oneway: !!r[4], pts, from: r[6] || null };
 }
 function rebuildWays(lat, lon){
   const ty = Math.floor(lat / TILES.tile), tx = Math.floor(lon / TILES.tile), seen = new Set(), ways = [];
@@ -762,12 +762,15 @@ function renderLive(){
   $('spd').innerHTML = `${active || demo.running ? kmh : 0}<small>km/h</small>`;
   const L = lastLimit, sign = $('sign');
   if (L.limit && (active || demo.running)) {
-    const tag = { map: 'POSTED', street: 'POSTED*', est: 'EST.', you: 'YOURS', fixed: 'FIXED', fallback: 'GUESS' }[L.src] || 'LIMIT';
+    const tag = { city: 'CITY', law: 'LAW', ontario: 'ONT.', map: 'POSTED', street: 'POSTED*', est: 'EST.', you: 'YOURS', fixed: 'FIXED', fallback: 'GUESS' }[L.src] || 'LIMIT';
     sign.innerHTML = `${L.limit}<span>${tag}</span>`;
     sign.className = 'sign' + (kmh - L.limit > 10 ? ' over' : '') + (L.src === 'fallback' ? ' unknown' : '');
     const road = '';
     $('roadname').textContent = '📍 ' + (L.name ? L.name.replace(/^./, c => c.toUpperCase()) : (settings.limSrc === 'auto' ? 'Finding your road…' : '—'));
-    $('limitsrc').textContent = L.src === 'map' ? `Posted limit${road}` :
+    $('limitsrc').textContent = L.src === 'city' ? 'City of London by-law' :
+      L.src === 'law' ? 'City street: 50 under Ontario law' :
+      L.src === 'ontario' ? 'Ontario Road Network' :
+      L.src === 'map' ? `OpenStreetMap${road}` :
       L.src === 'you' ? `Your correction${road}` :
       L.src === 'street' ? 'Posted limit from the same street nearby' :
       L.src === 'est' ? `Estimated from road type${road}` :
@@ -844,7 +847,7 @@ function renderTripDetail(W, T){
     html += `<h2>Roads &amp; limits used</h2><div class="card">`;
     for (const [id, R] of roads) {
       const fixed = overrides[id];
-      html += `<div class="ev"><div><b>${esc(R.name)}</b> · ${fixed ? fixed + ' <span class="tag">yours</span>' : R.limit + ` <span class="tag">${{ map: 'posted', street: 'posted*', est: 'est.', you: 'yours', fallback: 'guess' }[R.src] || R.src}</span>`}
+      html += `<div class="ev"><div><b>${esc(R.name)}</b> · ${fixed ? fixed + ' <span class="tag">yours</span>' : R.limit + ` <span class="tag">${{ city: 'city', law: 'law', ontario: 'ontario', map: 'osm', street: 'posted*', est: 'est.', you: 'yours', fallback: 'guess' }[R.src] || R.src}</span>`}
         <span class="muted">${Math.round(R.sec / 60 * 10) / 10} min${R.overSec ? ' · ' + Math.round(R.overSec) + ' s over' : ''}</span></div>
         <a href="#" data-way="${id}" data-name="${esc(R.name)}" data-lim="${fixed || R.limit}" class="fixlim">Fix ›</a></div>`;
     }

@@ -8,6 +8,7 @@ on:
     paths:
       - "tools/build_roads.py"
       - "tools/area.json"
+      - "tools/official.py"
 
 permissions:
   contents: write
@@ -16,7 +17,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Download OpenStreetMap roads and build tiles
