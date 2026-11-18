@@ -143,8 +143,8 @@ def build(data, offline_official=None):
             pieces_n += 1
         n += 1
     os.makedirs(OUT, exist_ok=True)
-    for f in os.listdir(OUT):
-        if f.endswith(".json"):
+    for f in os.listdir(OUT):  # remove only old map tiles + index; other data (roadwork.json) stays
+        if f == "index.json" or re.match(r"^-?\d+_-?\d+\.json$", f):
             os.remove(os.path.join(OUT, f))
     tagged = sum(1 for e in data["elements"] if parse_max((e.get("tags") or {}).get("maxspeed")))
     for k, recs in tiles.items():
