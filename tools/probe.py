@@ -59,7 +59,45 @@ def lio_roads():
         print("props", ft["properties"])
 
 
-show("London layers", ldn_layers)
-show("London speed layer 9", ldn)
-show("LIO services", lio_list)
-show("LIO road net element sample", lio_roads)
+
+def ldn_root():
+    for u in ["https://maps.london.ca/server/rest/services", "https://maps.london.ca/server/rest/services/References"]:
+        try:
+            m = get(u, {"f": "pjson"})
+            print(u, "folders", m.get("folders"), "services", [(x["name"], x["type"]) for x in m.get("services", [])])
+        except Exception as e:
+            print(u, "ERR", repr(e))
+    for svc in ["References/Transportation/MapServer", "References/Transportation/FeatureServer", "Transportation/MapServer"]:
+        try:
+            m = get("https://maps.london.ca/server/rest/services/" + svc, {"f": "pjson"})
+            print(svc, "->", m.get("error") or [(l["id"], l["name"]) for l in m.get("layers", [])])
+        except Exception as e:
+            print(svc, "ERR", repr(e))
+
+
+def orn_speed():
+    m = get(f"{LIO}/LIO_Open09/MapServer/13", {"f": "pjson"})
+    print("T13", m.get("name"), "fields", [(f["name"], f["type"]) for f in m.get("fields", [])])
+    print("count", get(f"{LIO}/LIO_Open09/MapServer/13/query", {"where": "1=1", "returnCountOnly": "true", "f": "json"}))
+    ids = "1500658852,1500681326,1500552542"
+    for t in (13, 8, 5):
+        mm = get(f"{LIO}/LIO_Open09/MapServer/{t}", {"f": "pjson"})
+        key = [f["name"] for f in mm.get("fields", []) if "NET_ELEMENT" in f["name"] or f["name"] == "ORN_ROAD_NET_ELEMENT_ID"]
+        print("table", t, mm.get("name"), "key", key)
+        if key:
+            s = get(f"{LIO}/LIO_Open09/MapServer/{t}/query", {"where": f"{key[0]} in ({ids})", "outFields": "*", "f": "json"})
+            for ft in s.get("features", [])[:6]:
+                print("   ", ft.get("attributes"))
+    st = get(f"{LIO}/LIO_Open09/MapServer/13/query", {"where": "1=1", "outFields": "SPEED_LIMIT", "returnDistinctValues": "true", "returnGeometry": "false", "f": "json"})
+    print("distinct speed values", sorted({tuple(f["attributes"].values()) for f in st.get("features", [])})[:40])
+
+
+def orn_area_count():
+    s = get(f"{LIO}/LIO_Open09/MapServer/0/query", {"geometry": "-81.50,42.82,-80.98,43.12", "geometryType": "esriGeometryEnvelope",
+        "inSR": "4326", "spatialRel": "esriSpatialRelIntersects", "returnCountOnly": "true", "f": "json"})
+    print("ORN elements in London area", s)
+
+
+show("London services", ldn_root)
+show("ORN speed table", orn_speed)
+show("ORN London count", orn_area_count)
