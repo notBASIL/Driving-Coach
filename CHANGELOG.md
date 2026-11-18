@@ -14,6 +14,7 @@ App: https://notbasil.github.io/Driving-Coach/driving-coach.html
 - **Weekly trends** on Stats: weekly score chart with 3★/4★/5★ guides (tap a week for details) and a trend line per factor with ▲/▼ versus the previous week.
 - **Backup to Files** through the iPhone share sheet, **Restore from a backup file** (no duplicates, includes speed-limit fixes), and a weekly backup reminder once you have 3+ trips.
 - Drive screen redraws only when something visible changes (less work while driving).
+- Behind the scenes: the monthly map rebuild and the daily road-work update take turns, and the map rebuild no longer touches road-work data. `notbasil.github.io/Driving-Coach/` now opens the app directly.
 
 ## v3.2 — Tab bar icons
 - New line icons for Drive (steering wheel), Trips (route), Stats (bars and a star) and Settings (sliders), with a highlighted pill on the active tab. Themed in every design.
