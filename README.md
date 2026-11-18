@@ -22,6 +22,8 @@ See [CHANGELOG.md](CHANGELOG.md) for the patch notes.
 | `tools/build_roadwork.py` | Builds `roads/roadwork.json`. |
 | `tools/area.json` | The area covered by the map. |
 | `.github/workflows/` | Monthly map rebuild and daily road-work update. |
+| `CHANGELOG.md` | Patch notes; every push is recorded here. |
+| `CLAUDE.md` | Working rules for Claude on this repo. |
 
 ## Data sources and credits
 - Speed limits and road work: City of London Open Data.
