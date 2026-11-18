@@ -20,7 +20,18 @@ def title(s):
 
 
 def main():
-    feats = official._all_features(URL, {"where": "1=1", "outFields": "*", "f": "geojson", "outSR": "4326"}, 500)
+    feats, off = [], 0
+    while True:  # plain GET, Esri JSON (this service rejects the paged/geojson queries)
+        j = official._get(URL + "/query", {"where": "1=1", "outFields": "*", "returnGeometry": "true", "outSR": "4326",
+                                           "f": "json", "resultOffset": off, "resultRecordCount": 1000})
+        page = j.get("features", [])
+        for ft in page:
+            g = ft.get("geometry") or {}
+            feats.append({"properties": ft.get("attributes") or {},
+                          "geometry": {"type": "MultiLineString", "coordinates": g.get("paths") or []}})
+        if not j.get("exceededTransferLimit") or not page:
+            break
+        off += len(page)
     now = time.time() * 1000
     items = []
     for f in feats:
