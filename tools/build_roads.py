@@ -60,6 +60,33 @@ def download():
         time.sleep(60)
     sys.exit(f"All Overpass servers failed: {last}")
 
+def load_geojsonseq(path):
+    """Roads exported by osmium (geojsonseq with @id) -> the same shape as an Overpass reply."""
+    els = []
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip().lstrip("\x1e")
+            if not line:
+                continue
+            f = json.loads(line)
+            g = f.get("geometry") or {}
+            if g.get("type") != "LineString":
+                continue
+            props = dict(f.get("properties") or {})
+            oid = props.pop("@id", None) or f.get("id")
+            props.pop("@type", None)
+            try:
+                oid = int(str(oid).lstrip("w"))
+            except (TypeError, ValueError):
+                continue
+            if not re.match(f"^({ROADS})$", props.get("highway", "")):
+                continue
+            els.append({"type": "way", "id": oid, "tags": props,
+                        "geometry": [{"lat": c[1], "lon": c[0]} for c in g["coordinates"]]})
+    print(f"OpenStreetMap extract: {len(els)} roads", flush=True)
+    return {"elements": els}
+
+
 def tile_of(lat, lon, t):
     return (math.floor(lat / t), math.floor(lon / t))
 
@@ -140,4 +167,10 @@ if __name__ == "__main__":
         orn = [([tuple(p) for p in o[0]], o[1], o[2], o[3]) for o in off["orn"]]
         build(json.load(open(sys.argv[1])), (city, orn))
     else:
-        build(json.load(open(sys.argv[1])) if len(sys.argv) > 1 else download())
+        src = os.environ.get("OSM_GEOJSONSEQ")
+        if len(sys.argv) > 1:
+            build(json.load(open(sys.argv[1])))
+        elif src and os.path.exists(src) and os.path.getsize(src) > 1000:
+            build(load_geojsonseq(src))
+        else:
+            build(download())

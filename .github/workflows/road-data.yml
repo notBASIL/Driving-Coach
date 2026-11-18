@@ -9,6 +9,7 @@ on:
       - "tools/build_roads.py"
       - "tools/area.json"
       - "tools/official.py"
+      - ".github/workflows/road-data.yml"
 
 permissions:
   contents: write
@@ -20,7 +21,19 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - name: Download OpenStreetMap roads and build tiles
+      - name: Get OpenStreetMap roads (Geofabrik Ontario extract)
+        continue-on-error: true
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool >/dev/null
+          curl -sSfL -o ontario.osm.pbf https://download.geofabrik.de/north-america/canada/ontario-latest.osm.pbf
+          BBOX=$(python3 -c "import json;a=json.load(open('tools/area.json'));print(f\"{a['west']},{a['south']},{a['east']},{a['north']}\")")
+          osmium extract -b "$BBOX" ontario.osm.pbf -o area.osm.pbf --overwrite
+          osmium tags-filter area.osm.pbf w/highway=motorway,trunk,primary,secondary,tertiary,unclassified,residential,living_street,motorway_link,trunk_link,primary_link,secondary_link,tertiary_link -o roads.osm.pbf --overwrite
+          osmium export roads.osm.pbf -f geojsonseq --geometry-types=linestring -a id -o roads.geojsonseq --overwrite
+          ls -la roads.geojsonseq
+      - name: Build tiles with official speed limits
+        env:
+          OSM_GEOJSONSEQ: roads.geojsonseq
         run: python3 tools/build_roads.py
       - name: Commit updated tiles
         run: |
