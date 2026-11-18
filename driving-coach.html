@@ -107,6 +107,12 @@ html[data-theme="daylight"] .sign{box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .theme-opt .sw{display:flex;gap:4px;flex:none}
 .theme-opt .sw i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(128,128,128,.4)}
 .theme-opt small{display:block;font-weight:500;color:var(--muted);font-size:12px;margin-top:2px}
+.rw{display:flex;align-items:center;gap:12px;background:var(--amber);color:#1C1400;border-radius:16px;padding:12px 14px;margin:12px 0 0}
+html[data-theme="daylight"] .rw{background:#F5C451}
+.rw-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rw-t b{font-size:16px}
+.rw-t small{font-size:12px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rw button{border:0;border-radius:12px;background:rgba(0,0,0,.18);color:#1C1400;font-weight:700;font-size:14px;padding:0 12px;min-height:44px;flex:none}
 .iconbtn{width:44px;height:44px;border-radius:22px;border:1px solid var(--line);background:var(--card2);color:var(--text);display:flex;align-items:center;justify-content:center;padding:0}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);
@@ -206,13 +212,14 @@ textarea{width:100%;height:120px;background:var(--card2);color:var(--text);borde
   </div>
 </div>
 
-<div class="topbar"><h1><span class="logo-text">Driving Coach</span> <span class="muted" style="font-size:12px;font-weight:500">v3.2</span></h1><div style="display:flex;align-items:center;gap:10px"><button id="themeBtn" class="iconbtn" aria-label="Choose theme"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4-4-7.4-9-7.4z"></path><circle cx="7.5" cy="11" r="1.2"></circle><circle cx="10.5" cy="7" r="1.2"></circle><circle cx="15" cy="7.5" r="1.2"></circle></svg></button>
+<div class="topbar"><h1><span class="logo-text">Driving Coach</span> <span class="muted" style="font-size:12px;font-weight:500">v3.3</span></h1><div style="display:flex;align-items:center;gap:10px"><button id="themeBtn" class="iconbtn" aria-label="Choose theme"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4-4-7.4-9-7.4z"></path><circle cx="7.5" cy="11" r="1.2"></circle><circle cx="10.5" cy="7" r="1.2"></circle><circle cx="15" cy="7.5" r="1.2"></circle></svg></button>
 <button id="muteBtn" class="iconbtn" aria-label="Sound on"></button></div></div>
 <div class="pills" id="pills"></div>
 <div class="wrap" id="updateBar" style="display:none;padding-bottom:0"><button class="btn" id="updateBtn" style="margin-top:6px;padding:14px;font-size:16px;background:var(--blue)">New version available: tap to update</button></div>
 
 <!-- DRIVE -->
 <section class="view active" id="v-drive"><div class="wrap">
+  <div id="rwBanner"></div>
   <div id="themeDrive"></div>
   <div id="classicDrive">
   <div class="card">
@@ -271,11 +278,16 @@ textarea{width:100%;height:120px;background:var(--card2);color:var(--text);borde
   <div class="card">
     <div class="row"><div>Source<div class="note">Map looks up posted limits from OpenStreetMap as you drive.</div></div>
       <div class="seg" id="set-limsrc"><button data-v="auto">Map</button><button data-v="default">Fixed</button><button data-v="off">Off</button></div></div>
+    <div class="row"><div>Road work warnings<div class="note">City of London road work, updated daily.</div></div><button class="switch" id="set-roadwork"></button></div>
     <div class="row"><div>Fallback / fixed limit (km/h)<div class="note">Used when the map has no limit for a road.</div></div><input type="number" id="set-deflimit" min="20" max="120" step="10"></div>
   </div>
   <h2>Data</h2>
   <div class="card">
-    <button class="btn sec" id="demoBtn" style="margin-top:0">Run a demo trip (simulated)</button>
+    <button class="btn" id="backupBtn" style="margin-top:0">Back up to Files</button>
+    <label class="btn sec" for="restoreFile" style="text-align:center;box-sizing:border-box">Restore from a backup file</label>
+    <input type="file" id="restoreFile" accept=".json,application/json" style="display:none">
+    <p class="note" id="backupInfo" style="margin:8px 2px 14px">Last backup: never</p>
+    <button class="btn sec" id="demoBtn">Run a demo trip (simulated)</button>
     <button class="btn sec" id="copyBtn">Copy my data (to move to another app/browser)</button>
     <button class="btn sec" id="importBtn">Import data</button>
     <div id="importBox" style="display:none;margin-top:10px">
@@ -549,7 +561,7 @@ function onEvent(ev){
 /* ---------- engine wiring ---------- */
 const engine = new TripEngine({
   mode: settings.mode, autoEndMin: settings.autoEnd, onEvent,
-  onTripStart(){ say('Trip started'); renderLive(); },
+  onTripStart(){ say('Trip started'); if (typeof RW !== 'undefined') RW.alerted.clear(); renderLive(); },
   onTripEnd(T){ finishTrip(T); }
 });
 function finishTrip(T){
@@ -698,6 +710,8 @@ function matchRoad(lat, lon, hd, kmh){
   return best.w;
 }
 function limitForWay(w){
+  const tt = typeof tempLimits !== 'undefined' ? activeTemp(w.id) : null;
+  if (tt) return { limit: tt.v, src: 'temp', until: tt.until };
   if (overrides[w.id]) return { limit: overrides[w.id], src: 'you' };
   if (w.posted) return { limit: w.posted, src: ({ c: 'city', l: 'law', o: 'ontario', m: 'map' })[w.from] || 'map' };
   const k = roadKey(w); // your correction covers the street's untagged pieces; tagged pieces keep their own limit
@@ -773,10 +787,11 @@ function currentLimit(lat, lon, kmh, hd){
   SL.curLim = Object.assign(limitForWay(w), { name: w.name || w.hw.replace('_', ' '), wayId: w.id });
   return SL.curLim;
 }
-function setOverride(wayId, v){
+function setOverride(wayId, v, temp, name){
   const w0 = SL.ways.find(x => x.id === wayId), k = w0 ? roadKey(w0) : null;
-  if (v) { overrides[wayId] = v; if (k) overrides['n:' + k] = v; }
-  else { delete overrides[wayId]; if (k) delete overrides['n:' + k]; }
+  if (v && temp) { tempLimits[wayId] = { v, until: Date.now() + 14 * 864e5, name: name || '' }; store.set('tc_limit_temp', tempLimits); }
+  else if (v) { overrides[wayId] = v; if (k) overrides['n:' + k] = v; }
+  else { delete overrides[wayId]; if (k) delete overrides['n:' + k]; delete tempLimits[wayId]; store.set('tc_limit_temp', tempLimits); }
   store.set('tc_limit_overrides', overrides);
   if (SL.curLim && SL.curLim.wayId === wayId) { const w = SL.ways.find(x => x.id === wayId); if (w) SL.curLim = Object.assign(limitForWay(w), { name: SL.curLim.name, wayId }); lastLimit = SL.curLim; }
 }
@@ -803,6 +818,12 @@ function onPos(p){
   gpsAcc = c.accuracy; lastFixTs = Date.now();
   const prevLim = lastLimit;
   lastLimit = currentLimit(c.latitude, c.longitude, kmh, c.heading);
+  RW.cur = rwCheck(c.latitude, c.longitude, c.heading, kmh);
+  if (RW.cur.state !== 'none' && engine.trip && !RW.alerted.has(RW.cur.item.id)) {
+    RW.alerted.add(RW.cur.item.id);
+    say(RW.cur.state === 'in' ? 'Road work zone. Watch for a lower speed limit.' : 'Road work ahead. Watch for a lower speed limit.');
+    toast(`Road work${RW.cur.state === 'in' ? '' : ' ahead'}: ${RW.cur.item.street || ''}`); flash('amber');
+  }
   if (settings.sayLimit && engine.trip && lastLimit.limit && lastLimit.src !== 'fallback' && prevLim && prevLim.limit && lastLimit.limit !== prevLim.limit
       && Date.now() - (onPos.saidAt || 0) > 15000) { onPos.saidAt = Date.now(); say(`Speed limit ${lastLimit.limit}`); }
   engine.fix({ t: p.timestamp || Date.now(), lat: c.latitude, lon: c.longitude, acc: c.accuracy,
@@ -864,6 +885,166 @@ function renderPills(){
   pills.push([settings.mode === 'strict' ? 'Strict' : 'Normal', '']);
   $('pills').innerHTML = pills.map(([t, c]) => `<span class="pill ${c}">${t}</span>`).join('');
 }
+/* ---------- road work (City of London open data, refreshed daily) ---------- */
+const RW = { items: null, loading: false, loadedAt: 0, tried: 0, cur: { state: 'none' }, alerted: new Set() };
+async function loadRoadwork(){
+  RW.loading = true; RW.tried = Date.now();
+  try {
+    const r = await fetchTimeout('roads/roadwork.json?d=' + new Date().toISOString().slice(0, 10), {}, 15000);
+    if (r.ok) {
+      const j = await r.json(), now = Date.now();
+      RW.items = (j.items || []).filter(it => !it.end || it.end > now - 86400000).map(it => {
+        const pts = []; for (let i = 0; i + 1 < it.p.length; i += 2) pts.push([it.p[i] / 1e5, it.p[i + 1] / 1e5]);
+        let s = 90, n = -90, w = 180, e = -180;
+        for (const [a, b] of pts) { s = Math.min(s, a); n = Math.max(n, a); w = Math.min(w, b); e = Math.max(e, b); }
+        return Object.assign(it, { pts, bb: [s - 0.004, w - 0.005, n + 0.004, e + 0.005] });
+      }).filter(it => it.pts.length > 1);
+      RW.loadedAt = Date.now();
+    }
+  } catch(e){}
+  RW.loading = false;
+}
+function rwCheck(lat, lon, hd, kmh){
+  if (settings.roadwork === false) return { state: 'none' };
+  if (!RW.loading && (!RW.items ? Date.now() - RW.tried > 60000 : Date.now() - RW.loadedAt > 6 * 3600e3)) loadRoadwork();
+  if (!RW.items) return { state: 'none' };
+  const useHd = hd != null && !isNaN(hd) && hd >= 0 && kmh > 10;
+  const ahead = useHd ? [75, 150, 225, 300] : [];
+  for (const d of [0].concat(ahead)) {
+    const p = d ? { lat: lat + d * Math.cos(hd * Math.PI / 180) / 110540, lon: lon + d * Math.sin(hd * Math.PI / 180) / (111320 * Math.cos(lat * Math.PI / 180)) } : { lat, lon };
+    let best = null;
+    for (const it of RW.items) {
+      if (p.lat < it.bb[0] || p.lat > it.bb[2] || p.lon < it.bb[1] || p.lon > it.bb[3]) continue;
+      const m = nearestOnWay(p.lat, p.lon, it);
+      if (m.d > 30) continue;
+      if (useHd) { let df = Math.abs(angDiff(m.brg, hd)); df = Math.min(df, 180 - df); if (df > 40) continue; }
+      if (!best || m.d < best.d) best = { d: m.d, it };
+    }
+    if (best) return { state: d ? 'ahead' : 'in', item: best.it, dist: d };
+  }
+  return { state: 'none' };
+}
+const fmtDay = t => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' });
+function rwBannerHTML(){
+  const c = RW.cur;
+  if (!c || c.state === 'none' || !(active || demo.running)) return '';
+  const it = c.item, where = it.from && it.to ? `${esc(it.from)} → ${esc(it.to)}` : esc(it.where || '');
+  return `<div class="rw" role="status">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 4h5l4.5 15h-14z"></path><path d="M7.6 11h8.8M6.2 15.5h11.6M3 19.5h18"></path></svg>
+    <div class="rw-t"><b>${c.state === 'in' ? 'Road work zone' : `Road work ahead · ${c.dist} m`}</b>
+      <small>${esc(it.street || 'Road work')}${where ? ' · ' + where : ''}${it.end ? ' · until ' + fmtDay(it.end) : ''}</small></div>
+    <button type="button" data-rwfix="1">Set limit</button></div>`;
+}
+
+/* ---------- temporary limits (road work) ---------- */
+let tempLimits = store.get('tc_limit_temp', {});
+function activeTemp(id){
+  const t = tempLimits[id];
+  if (t && t.until > Date.now()) return t;
+  if (t) { delete tempLimits[id]; store.set('tc_limit_temp', tempLimits); }
+  return null;
+}
+
+/* ---------- weekly trends ---------- */
+function weekStart(t){ const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d.getTime(); }
+function trendsHTML(real, agg){
+  const by = {};
+  for (const T of real) (by[weekStart(T.start)] = by[weekStart(T.start)] || []).push(T);
+  const weeks = Object.keys(by).map(Number).sort((a, b) => a - b).slice(-8).map(w => Object.assign({ w, n: by[w].length }, agg(by[w])));
+  TRENDS = weeks;
+  if (!weeks.length) return '';
+  let html = `<h2>Weekly trends</h2><div class="card">`;
+  if (weeks.length < 2) {
+    html += `<p class="note" style="margin:0">Trends appear after your second week of driving. This week so far: <b>${Math.round(weeks[0].overall)}</b> over ${weeks[0].km.toFixed(0)} km.</p></div>`;
+    return html;
+  }
+  const W = 320, H = 150, L = 34, R = 10, Tp = 12, B = 26;
+  const lo = Math.min(60, Math.floor(Math.min(...weeks.map(x => x.overall)) / 10) * 10), hi = 100;
+  const x = i => L + (weeks.length === 1 ? 0 : i * (W - L - R) / (weeks.length - 1)), y = v => Tp + (hi - v) * (H - Tp - B) / (hi - lo);
+  const grid = [[90, '5★'], [75, '4★'], [60, '3★']].filter(([v]) => v >= lo).map(([v, l]) =>
+    `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line)" stroke-width="1"></line>
+     <text x="${L - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--muted)">${l}</text>`).join('');
+  const path = weeks.map((wk, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(wk.overall).toFixed(1)}`).join(' ');
+  const step = (W - L - R) / Math.max(1, weeks.length - 1);
+  const dots = weeks.map((wk, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(wk.overall).toFixed(1)}" r="4.5" fill="var(--accent)" stroke="var(--card)" stroke-width="2"></circle>`).join('');
+  const hits = weeks.map((wk, i) => `<rect data-wk="${i}" x="${(x(i) - step / 2).toFixed(1)}" y="0" width="${step.toFixed(1)}" height="${H}" fill="transparent" style="cursor:pointer"><title>Week of ${fmtDay(wk.w)}: ${Math.round(wk.overall)}</title></rect>`).join('');
+  const labels = weeks.map((wk, i) => (i === 0 || i === weeks.length - 1 || weeks.length <= 5) ?
+    `<text x="${x(i).toFixed(1)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === weeks.length - 1 ? 'end' : 'middle'}" font-size="10" fill="var(--muted)">${fmtDay(wk.w)}</text>` : '').join('');
+  html += `<div class="muted small">Overall score by week (tap a week)</div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Weekly overall score, ${weeks.map(wk => fmtDay(wk.w) + ' ' + Math.round(wk.overall)).join(', ')}" style="display:block;margin-top:6px">
+      ${grid}<line id="trendCursor" x1="0" x2="0" y1="${Tp}" y2="${H - B}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" visibility="hidden"></line>
+      <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>${dots}${labels}${hits}</svg>
+    <div id="trendReadout" class="note" style="margin-top:6px"></div>`;
+  html += `<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:16px">`;
+  for (const k of FACTORS) {
+    const vals = weeks.map(wk => wk.f[k]), have = vals.map((v, i) => [v, i]).filter(([v]) => v != null);
+    const last = have.length ? have[have.length - 1][0] : null, prev = have.length > 1 ? have[have.length - 2][0] : null;
+    const diff = last != null && prev != null ? Math.round(last - prev) : null;
+    const sw = 140, sh = 34, slo = Math.min(...have.map(([v]) => v), 70), sx = i => 2 + i * (sw - 4) / Math.max(1, weeks.length - 1), sy = v => 3 + (100 - v) * (sh - 6) / Math.max(1, 100 - slo);
+    const sp = have.map(([v, i], j) => `${j ? 'L' : 'M'}${sx(i).toFixed(1)} ${sy(v).toFixed(1)}`).join(' ');
+    html += `<div><div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px"><span class="small" style="font-weight:600">${FACTOR_META[k].name}</span>
+      <span class="small"><b>${last == null ? '—' : Math.round(last)}</b>${diff ? ` <span style="color:${diff > 0 ? 'var(--green)' : 'var(--amber)'}">${diff > 0 ? '▲' : '▼'} ${Math.abs(diff)}</span>` : ''}</span></div>
+      ${have.length ? `<svg viewBox="0 0 ${sw} ${sh}" width="100%" height="${sh}" preserveAspectRatio="none" aria-hidden="true" style="display:block;margin-top:4px"><path d="${sp}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"></path></svg>` : '<div class="muted small">no data</div>'}</div>`;
+  }
+  html += `</div><p class="note" style="margin:12px 0 0">Each week is weighted by distance. ▲ / ▼ compare with the week before.</p></div>`;
+  return html;
+}
+let TRENDS = [];
+function showTrendWeek(i){
+  const wk = TRENDS[i], el = document.getElementById('trendReadout'); if (!wk || !el) return;
+  el.innerHTML = `Week of <b>${fmtDay(wk.w)}</b> · score <b>${Math.round(wk.overall)}</b> (${starsFor(wk.overall)}★) · ${wk.km.toFixed(0)} km · ${wk.n} trip${wk.n === 1 ? '' : 's'}`;
+  const c = document.getElementById('trendCursor'), dot = document.querySelectorAll('#statsWrap svg circle')[i];
+  if (c && dot) { c.setAttribute('x1', dot.getAttribute('cx')); c.setAttribute('x2', dot.getAttribute('cx')); c.setAttribute('visibility', 'visible'); }
+}
+
+/* ---------- backup ---------- */
+const DAY = 864e5;
+function backupData(){ return { app: 'driving-coach', v: 2, exported: new Date().toISOString(), trips, overrides, tempLimits }; }
+function markBackup(){ settings.lastBackup = Date.now(); saveSettings(); toast('Backup saved'); renderTrips(); renderStats(); renderBackupInfo(); }
+async function doBackup(){
+  const name = `driving-coach-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const blob = new Blob([JSON.stringify(backupData())], { type: 'application/json' });
+  let file = null; try { file = new File([blob], name, { type: 'application/json' }); } catch(e){}
+  try {
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Driving Coach backup' }); markBackup(); return; }
+  } catch(e){ if (e && e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); markBackup();
+}
+function importData(data){
+  const inTrips = Array.isArray(data) ? data : (data && Array.isArray(data.trips) ? data.trips : null);
+  if (!inTrips) return null;
+  const have = new Set(trips.map(t => t.id));
+  let added = 0, fixes = 0;
+  for (const T of inTrips) if (T && T.id && T.start && Array.isArray(T.events) && !have.has(T.id)) { trips.push(T); have.add(T.id); added++; }
+  trips.sort((a, b) => b.start - a.start); saveTrips();
+  if (data && data.overrides && typeof data.overrides === 'object') {
+    for (const [k, v] of Object.entries(data.overrides)) if (+v > 0 && overrides[k] == null) { overrides[k] = +v; fixes++; }
+    store.set('tc_limit_overrides', overrides);
+  }
+  if (data && data.tempLimits && typeof data.tempLimits === 'object') {
+    for (const [k, t] of Object.entries(data.tempLimits)) if (t && t.until > Date.now() && !tempLimits[k]) tempLimits[k] = t;
+    store.set('tc_limit_temp', tempLimits);
+  }
+  return { added, fixes };
+}
+function backupDue(){
+  const real = trips.filter(t => !t.demo).length, now = Date.now();
+  return real >= 3 && now - (settings.lastBackup || 0) > 7 * DAY && now > (settings.backupSnooze || 0);
+}
+function backupBannerHTML(){
+  if (!backupDue()) return '';
+  return `<div class="card" style="border-color:var(--amber)"><b>Back up your trips</b>
+    <p class="note" style="margin:6px 0 10px">Last backup: ${settings.lastBackup ? fmtDay(settings.lastBackup) : 'never'}. iPhone can clear a web app's data, so keep a copy in Files.</p>
+    <div style="display:flex;gap:8px"><button class="btn" data-bk="now" style="margin:0;padding:12px;font-size:16px">Back up now</button>
+    <button class="btn sec" data-bk="later" style="margin:0;padding:12px;width:auto">Later</button></div></div>`;
+}
+function renderBackupInfo(){ const el = document.getElementById('backupInfo'); if (el) el.textContent = 'Last backup: ' + (settings.lastBackup ? new Date(settings.lastBackup).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'never'); }
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-bk]'); if (b) { if (b.dataset.bk === 'now') doBackup(); else { settings.backupSnooze = Date.now() + 3 * DAY; saveSettings(); renderTrips(); renderStats(); } return; }
+  const wk = e.target.closest('[data-wk]'); if (wk) showTrendWeek(+wk.dataset.wk);
+  if (e.target.closest('[data-rwfix]')) $('sign').onclick();
+});
+
 /* ---------- themed layouts ---------- */
 const ICONS = {
   pin: '<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"></path><circle cx="12" cy="10" r="2.5"></circle>',
@@ -875,7 +1056,7 @@ const ICONS = {
   duration: '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path>'
 };
 const svgIcon = (n, size, color) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color || 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
-const LIMIT_TAG = { city: 'CITY', law: 'LAW', ontario: 'ONT.', map: 'POSTED', street: 'POSTED*', est: 'EST.', you: 'YOURS', fixed: 'FIXED', fallback: 'GUESS' };
+const LIMIT_TAG = { temp: 'TEMP', city: 'CITY', law: 'LAW', ontario: 'ONT.', map: 'POSTED', street: 'POSTED*', est: 'EST.', you: 'YOURS', fixed: 'FIXED', fallback: 'GUESS' };
 const COUNTER_LABEL = { brake: 'Brakes', accel: 'Starts', corner: 'Turns', speed: 'Speeding', distraction: 'Phone' };
 const EV_NAME = { brake: 'Hard brake', accel: 'Fast start', corner: 'Sharp turn', speed: 'Speeding', distraction: 'Phone use' };
 const nowT = () => engine.hist.length ? engine.hist[engine.hist.length - 1].t : Date.now();
@@ -889,7 +1070,7 @@ function driveState(){
   const status = !on ? 'idle' : over != null && over > 10 ? 'alert' : (recent || (over != null && over > 3)) ? 'warn' : T ? 'ok' : 'idle';
   const road = on ? (L.name ? L.name.replace(/^./, c => c.toUpperCase()) : (settings.limSrc === 'auto' ? 'Finding your road…' : '—')) : 'Not driving';
   const srcText = !limit ? (settings.limSrc === 'off' ? 'Speed checks off' : (on ? 'No speed limit yet' : 'Tap Start driving before you pull out')) :
-    ({ city: 'City of London by-law', law: 'City street: 50 under Ontario law', ontario: 'Ontario Road Network', map: 'OpenStreetMap', you: 'Your correction',
+    ({ temp: 'Temporary limit (road work)', city: 'City of London by-law', law: 'City street: 50 under Ontario law', ontario: 'Ontario Road Network', map: 'OpenStreetMap', you: 'Your correction',
        street: 'Posted limit from the same street', est: 'Estimated from road type', fixed: 'Fixed limit (Settings)' })[L.src] || 'Guess: tap the sign to fix when stopped';
   return { on, T, r, kmh, limit, over, src: L.src, tag: LIMIT_TAG[L.src] || 'LIMIT', counts, lastEv, status, road, srcText,
     tripLine: T ? `This trip · ${Math.round(r.mins)} min · ${r.km.toFixed(1)} km` : (active ? 'Waiting: trip starts above 15 km/h' : 'Not driving') };
@@ -988,7 +1169,8 @@ function renderThemed(){
   const st = driveState();
   if (t === 'glance') document.documentElement.setAttribute('data-gstate', curView === 'drive' ? st.status : 'idle');
   else document.documentElement.removeAttribute('data-gstate');
-  box.innerHTML = DRIVE_LAYOUTS[t](st);
+  const html = DRIVE_LAYOUTS[t](st);
+  if (renderThemed.last !== html) { box.innerHTML = html; renderThemed.last = html; } // redraw only when something visible changed
 }
 function renderLive(){
   const T = engine.trip;
@@ -996,7 +1178,7 @@ function renderLive(){
   $('spd').innerHTML = `${active || demo.running ? kmh : 0}<small>km/h</small>`;
   const L = lastLimit, sign = $('sign');
   if (L.limit && (active || demo.running)) {
-    const tag = { city: 'CITY', law: 'LAW', ontario: 'ONT.', map: 'POSTED', street: 'POSTED*', est: 'EST.', you: 'YOURS', fixed: 'FIXED', fallback: 'GUESS' }[L.src] || 'LIMIT';
+    const tag = { temp: 'TEMP', city: 'CITY', law: 'LAW', ontario: 'ONT.', map: 'POSTED', street: 'POSTED*', est: 'EST.', you: 'YOURS', fixed: 'FIXED', fallback: 'GUESS' }[L.src] || 'LIMIT';
     sign.innerHTML = `${L.limit}<span>${tag}</span>`;
     sign.className = 'sign' + (kmh - L.limit > 10 ? ' over' : '') + (L.src === 'fallback' ? ' unknown' : '');
     const road = '';
@@ -1005,6 +1187,7 @@ function renderLive(){
       L.src === 'law' ? 'City street: 50 under Ontario law' :
       L.src === 'ontario' ? 'Ontario Road Network' :
       L.src === 'map' ? `OpenStreetMap${road}` :
+      L.src === 'temp' ? 'Temporary limit (road work)' :
       L.src === 'you' ? `Your correction${road}` :
       L.src === 'street' ? 'Posted limit from the same street nearby' :
       L.src === 'est' ? `Estimated from road type${road}` :
@@ -1035,6 +1218,7 @@ function renderLive(){
   }
   renderPills();
   renderThemed();
+  const rh = rwBannerHTML(); if (renderLive.rw !== rh) { $('rwBanner').innerHTML = rh; renderLive.rw = rh; }
 }
 
 /* ---------- trips ---------- */
@@ -1043,7 +1227,7 @@ function renderTrips(){
   const W = $('tripsWrap');
   if (openTrip) { renderTripDetail(W, trips.find(t => t.id === openTrip)); return; }
   if (!trips.length) { W.innerHTML = `<h2>Trips</h2><div class="empty">No trips yet.<br>Start the coach and drive, or run a demo trip from Settings.</div>`; return; }
-  let html = '<h2>Trips</h2>', lastDay = '';
+  let html = backupBannerHTML() + '<h2>Trips</h2>', lastDay = '';
   for (const T of trips) {
     const r = T.result || scoreTrip(T), day = fmtDate(T.start);
     if (day !== lastDay) { html += `<div class="muted small" style="margin:14px 2px 2px">${day}</div>`; lastDay = day; }
@@ -1106,7 +1290,7 @@ function renderTripDetail(W, T){
     html += `<h2>Roads &amp; limits used</h2><div class="card">`;
     for (const [id, R] of roads) {
       const fixed = overrides[id];
-      html += `<div class="ev"><div><b>${esc(R.name)}</b> · ${fixed ? fixed + ' <span class="tag">yours</span>' : R.limit + ` <span class="tag">${{ city: 'city', law: 'law', ontario: 'ontario', map: 'osm', street: 'posted*', est: 'est.', you: 'yours', fallback: 'guess' }[R.src] || R.src}</span>`}
+      html += `<div class="ev"><div><b>${esc(R.name)}</b> · ${fixed ? fixed + ' <span class="tag">yours</span>' : R.limit + ` <span class="tag">${{ temp: 'temp', city: 'city', law: 'law', ontario: 'ontario', map: 'osm', street: 'posted*', est: 'est.', you: 'yours', fallback: 'guess' }[R.src] || R.src}</span>`}
         <span class="muted">${Math.round(R.sec / 60 * 10) / 10} min${R.overSec ? ' · ' + Math.round(R.overSec) + ' s over' : ''}</span></div>
         <a href="#" data-way="${id}" data-name="${esc(R.name)}" data-lim="${fixed || R.limit}" class="fixlim">Fix ›</a></div>`;
     }
@@ -1173,7 +1357,9 @@ function renderStats(){
   }
   html += `</div>`;
   if (top) html += `<div class="card"><b>Work on: ${FACTOR_META[top[0]].name}</b><p class="note" style="margin:6px 0 0">${top[1]} ${EV_TEXT[top[0]][0].toLowerCase()} events so far. ${FACTOR_META[top[0]].tip}</p></div>`;
-  W.innerHTML = html;
+  html += trendsHTML(real, agg);
+  W.innerHTML = backupBannerHTML() + html;
+  if (TRENDS.length > 1) showTrendWeek(TRENDS.length - 1);
 }
 
 /* ---------- settings ---------- */
@@ -1182,6 +1368,8 @@ function renderSettings(){
   document.querySelectorAll('#set-limsrc button').forEach(b => b.classList.toggle('on', b.dataset.v === settings.limSrc));
   $('set-beep').classList.toggle('on', settings.beep);
   $('set-voice').classList.toggle('on', settings.voice);
+  $('set-roadwork').classList.toggle('on', settings.roadwork !== false);
+  renderBackupInfo();
   $('set-saylimit').classList.toggle('on', settings.sayLimit);
   $('set-autoend').value = settings.autoEnd;
   $('set-deflimit').value = settings.defLimit;
@@ -1190,6 +1378,7 @@ document.querySelectorAll('#set-sens button').forEach(b => b.onclick = () => { s
 document.querySelectorAll('#set-limsrc button').forEach(b => b.onclick = () => { settings.limSrc = b.dataset.v; saveSettings(); renderSettings(); });
 $('set-beep').onclick = () => { settings.beep = !settings.beep; saveSettings(); renderSettings(); };
 $('set-voice').onclick = () => { settings.voice = !settings.voice; saveSettings(); renderSettings(); };
+$('set-roadwork').onclick = () => { settings.roadwork = settings.roadwork === false; saveSettings(); renderSettings(); };
 $('set-saylimit').onclick = () => { settings.sayLimit = !settings.sayLimit; saveSettings(); renderSettings(); };
 $('set-autoend').onchange = e => { settings.autoEnd = Math.max(1, Math.min(30, +e.target.value || 5)); engine.opts.autoEndMin = settings.autoEnd; saveSettings(); renderSettings(); renderLive(); };
 $('set-deflimit').onchange = e => { settings.defLimit = Math.max(20, Math.min(120, +e.target.value || 50)); saveSettings(); renderSettings(); };
@@ -1207,20 +1396,25 @@ $('importBtn').onclick = async () => {
 $('importGo').onclick = () => {
   let data;
   try { data = JSON.parse($('importText').value.trim()); } catch(e){ toast("That doesn't look like Driving Coach data"); return; }
-  const inTrips = Array.isArray(data) ? data : (data && Array.isArray(data.trips) ? data.trips : null);
-  if (!inTrips) { toast("That doesn't look like Driving Coach data"); return; }
-  const have = new Set(trips.map(t => t.id));
-  let added = 0;
-  for (const T of inTrips) if (T && T.id && T.start && Array.isArray(T.events) && !have.has(T.id)) { trips.push(T); have.add(T.id); added++; }
-  trips.sort((a, b) => b.start - a.start); saveTrips();
-  let fixes = 0;
-  if (data && data.overrides && typeof data.overrides === 'object') {
-    for (const [k, v] of Object.entries(data.overrides)) if (+v > 0 && overrides[k] == null) { overrides[k] = +v; fixes++; }
-    store.set('tc_limit_overrides', overrides);
-  }
+  const res = importData(data);
+  if (!res) { toast("That doesn't look like Driving Coach data"); return; }
+  const { added, fixes } = res;
   $('importText').value = ''; $('importBox').style.display = 'none';
   toast(`Imported ${added} trip${added === 1 ? '' : 's'}${fixes ? ` and ${fixes} speed-limit fix${fixes === 1 ? '' : 'es'}` : ''}`);
   renderTrips(); renderStats();
+};
+$('backupBtn').onclick = doBackup;
+$('restoreFile').onchange = (e) => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    let data; try { data = JSON.parse(rd.result); } catch(err){ toast("That file isn't a Driving Coach backup"); return; }
+    const res = importData(data);
+    if (!res) { toast("That file isn't a Driving Coach backup"); return; }
+    toast(`Restored ${res.added} trip${res.added === 1 ? '' : 's'}${res.fixes ? ` and ${res.fixes} speed-limit fix${res.fixes === 1 ? '' : 'es'}` : ''}`);
+    renderTrips(); renderStats();
+  };
+  rd.readAsText(f); e.target.value = '';
 };
 $('csvBtn').onclick = () => {
   const rows = [['date', 'start', 'end', 'km', 'minutes', 'overall', 'stars', 'accel', 'brake', 'corner', 'distraction', 'duration', 'speed', 'events', 'demo']];
@@ -1350,10 +1544,18 @@ $('muteBtn').onclick = () => { settings.muted = !settings.muted; saveSettings();
 renderMute();
 function openPicker(wayId, name, cur){
   const P = $('picker');
-  $('pickerTitle').textContent = `Correct the limit for ${name || 'this road'} (saved for next time):`;
-  $('pickerBtns').innerHTML = [30, 40, 50, 60, 70, 80, 90, 100].map(v => `<button class="btn sec" style="margin:0;padding:12px 0${v === cur ? ';border-color:var(--green);color:var(--green)' : ''}" data-v="${v}">${v}</button>`).join('')
-    + (overrides[wayId] ? `<button class="btn sec" style="margin:0;padding:12px 0;grid-column:span 4" data-v="0">Use map value again</button>` : '');
-  $('pickerBtns').querySelectorAll('button').forEach(b => b.onclick = () => { setOverride(wayId, +b.dataset.v); P.style.display = 'none'; toast(+b.dataset.v ? `Saved: ${name || 'this road'} = ${b.dataset.v}` : 'Back to map value'); renderLive(); renderTrips(); });
+  const tempDefault = RW.cur && RW.cur.state !== 'none';
+  $('pickerTitle').textContent = `Correct the limit for ${name || 'this road'}:`;
+  $('pickerBtns').innerHTML = `<label style="grid-column:span 4;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 2px 8px;font-size:14px">
+      <span>Temporary (road work)<span class="note" style="display:block">Back to normal in 14 days</span></span>
+      <input type="checkbox" id="pickTemp" ${tempDefault ? 'checked' : ''} style="width:24px;height:24px;accent-color:var(--accent)"></label>`
+    + [30, 40, 50, 60, 70, 80, 90, 100].map(v => `<button class="btn sec" style="margin:0;padding:12px 0${v === cur ? ';border-color:var(--accent);color:var(--accent)' : ''}" data-v="${v}">${v}</button>`).join('')
+    + (overrides[wayId] || tempLimits[wayId] ? `<button class="btn sec" style="margin:0;padding:12px 0;grid-column:span 4" data-v="0">Use map value again</button>` : '');
+  $('pickerBtns').querySelectorAll('button').forEach(b => b.onclick = () => {
+    const v = +b.dataset.v, temp = $('pickTemp').checked;
+    setOverride(wayId, v, temp, name); P.style.display = 'none';
+    toast(!v ? 'Back to map value' : temp ? `Temporary ${v} on ${name || 'this road'} until ${fmtDay(Date.now() + 14 * 864e5)}` : `Saved: ${name || 'this road'} = ${v}`);
+    renderLive(); renderTrips(); });
   P.style.display = 'block';
 }
 $('themeDrive').onclick = (e) => { if (e.target.closest('[data-fix]')) $('sign').onclick(); };

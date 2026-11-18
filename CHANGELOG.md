@@ -8,7 +8,7 @@ App: https://notbasil.github.io/Driving-Coach/driving-coach.html
 
 ---
 
-## v3.3 — Road work, trends and backup *(ready, not yet released)*
+## v3.3 — Road work, trends and backup
 - **Construction warnings.** The City of London's ongoing road work (about 475 sites) is downloaded daily. A banner, a voice alert and a screen flash warn you when road work is up to ~300 m ahead on your road or you're in it, once per zone per trip. Settings → Road work warnings turns it off.
 - **Temporary speed limits.** The limit picker has a "Temporary (road work)" option, pre-ticked inside road work. The sign shows **TEMP**, and the limit returns to normal by itself after 14 days.
 - **Weekly trends** on Stats: weekly score chart with 3★/4★/5★ guides (tap a week for details) and a trend line per factor with ▲/▼ versus the previous week.
