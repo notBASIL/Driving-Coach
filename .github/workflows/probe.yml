@@ -1,0 +1,14 @@
+name: Probe speed-limit sources
+on:
+  workflow_dispatch:
+  push:
+    paths: ["tools/probe.py"]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/probe.py
