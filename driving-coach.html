@@ -9,6 +9,9 @@
 <meta name="apple-mobile-web-app-title" content="Driving Coach">
 <meta name="theme-color" content="#0d1210">
 <title>Driving Coach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap">
 <script>
 (function(){try{var s=JSON.parse(localStorage.getItem('tc_settings')||'{}'),t=s.theme||'classic';
 if(t==='auto'){var h=new Date().getHours();t=(h>=7&&h<19)?'daylight':'midnight';}
@@ -104,13 +107,13 @@ html[data-theme="daylight"] .sign{box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .theme-opt .sw{display:flex;gap:4px;flex:none}
 .theme-opt .sw i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(128,128,128,.4)}
 .theme-opt small{display:block;font-weight:500;color:var(--muted);font-size:12px;margin-top:2px}
-@media (max-width:430px){#clock{display:none}}
 .iconbtn{width:44px;height:44px;border-radius:22px;border:1px solid var(--line);background:var(--card2);color:var(--text);display:flex;align-items:center;justify-content:center;padding:0}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif}
 body{padding:env(safe-area-inset-top) 0 calc(72px + env(safe-area-inset-bottom)) 0;min-height:100vh}
 h1{font-size:20px;margin:0}
+.logo-text{font-family:'Pacifico',cursive;font-size:25px;font-weight:400;line-height:1.3;letter-spacing:.2px}
 h2{font-size:17px;margin:20px 0 10px}
 .wrap{padding:12px 16px;max-width:560px;margin:0 auto}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 4px;max-width:560px;margin:0 auto}
@@ -200,8 +203,8 @@ textarea{width:100%;height:120px;background:var(--card2);color:var(--text);borde
   </div>
 </div>
 
-<div class="topbar"><h1>Driving Coach <span class="muted" style="font-size:12px;font-weight:500">v3</span></h1><div style="display:flex;align-items:center;gap:12px"><span class="muted small" id="clock"></span><button id="themeBtn" class="iconbtn" aria-label="Choose theme"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4-4-7.4-9-7.4z"></path><circle cx="7.5" cy="11" r="1.2"></circle><circle cx="10.5" cy="7" r="1.2"></circle><circle cx="15" cy="7.5" r="1.2"></circle></svg></button>
-<button id="muteBtn" style="background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:7px 12px;font-size:15px;font-weight:600">🔊 Sound on</button></div></div>
+<div class="topbar"><h1><span class="logo-text">Driving Coach</span> <span class="muted" style="font-size:12px;font-weight:500">v3.1</span></h1><div style="display:flex;align-items:center;gap:10px"><button id="themeBtn" class="iconbtn" aria-label="Choose theme"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4-4-7.4-9-7.4z"></path><circle cx="7.5" cy="11" r="1.2"></circle><circle cx="10.5" cy="7" r="1.2"></circle><circle cx="15" cy="7.5" r="1.2"></circle></svg></button>
+<button id="muteBtn" class="iconbtn" aria-label="Sound on"></button></div></div>
 <div class="pills" id="pills"></div>
 <div class="wrap" id="updateBar" style="display:none;padding-bottom:0"><button class="btn" id="updateBtn" style="margin-top:6px;padding:14px;font-size:16px;background:var(--blue)">New version available: tap to update</button></div>
 
@@ -837,7 +840,7 @@ document.addEventListener('touchstart', (e) => {
   if (!active || e.target.closest('#startbtn,#endtripbtn')) return;
   engine.touch(Date.now());
 }, { passive: true });
-setInterval(() => { if (engine.trip && !demo.running) store.set('tc_active', engine.trip); renderPills(); $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }, 10000);
+setInterval(() => { if (engine.trip && !demo.running) store.set('tc_active', engine.trip); renderPills(); }, 10000);
 
 /* ---------- rendering helpers ---------- */
 function starHTML(n){ let s = ''; for (let i = 1; i <= 5; i++) s += i <= n ? '★' : '<span class="off">★</span>'; return `<span class="stars">${s}</span>`; }
@@ -1321,7 +1324,7 @@ $('themeSheet').onclick = (e) => { if (e.target.id === 'themeSheet') $('themeShe
 applyTheme();
 setInterval(() => { if (settings.theme === 'auto') applyTheme(); }, 60000);
 /* self-update: compare this page's version with the one on the site */
-const APP_VERSION = (document.querySelector('.topbar h1 span') || {}).textContent || '';
+const APP_VERSION = (document.querySelector('.topbar h1 span.muted') || {}).textContent || '';
 async function checkUpdate(){
   try {
     const r = await fetch(location.pathname + '?check=' + Date.now(), { cache: 'no-store' });
@@ -1333,7 +1336,13 @@ async function checkUpdate(){
 $('updateBtn').onclick = () => { if (active || engine.trip) { toast('Update after this drive (stop the coach first)'); return; } location.replace(location.pathname + '?u=' + Date.now()); };
 checkUpdate();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
-function renderMute(){ $('muteBtn').textContent = settings.muted ? '🔇 Muted' : '🔊 Sound on'; $('muteBtn').style.color = settings.muted ? 'var(--amber)' : 'var(--text)'; }
+function renderMute(){
+  const b = $('muteBtn');
+  b.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"></path>${settings.muted ? '<path d="M17 9l5 6M22 9l-5 6"></path>' : '<path d="M16.5 8.5a5 5 0 0 1 0 7"></path><path d="M19 6a8.5 8.5 0 0 1 0 12"></path>'}</svg>`;
+  b.setAttribute('aria-label', settings.muted ? 'Sound off. Tap to turn on' : 'Sound on. Tap to mute');
+  b.setAttribute('aria-pressed', settings.muted ? 'true' : 'false');
+  b.style.color = settings.muted ? 'var(--amber)' : 'var(--text)';
+}
 $('muteBtn').onclick = () => { settings.muted = !settings.muted; saveSettings(); renderMute(); if (!settings.muted) { unlockAudio(); say('Sound on'); } else { try { speechSynthesis.cancel(); } catch(e){} } };
 renderMute();
 function openPicker(wayId, name, cur){
@@ -1354,7 +1363,6 @@ $('sign').onclick = () => {
 };
 $('endtripbtn').onclick = () => { if (engine.trip) engine.endTrip(); };
 
-$('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 renderLive(); renderSettings();
 })();
 </script>
