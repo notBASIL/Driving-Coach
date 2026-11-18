@@ -148,6 +148,56 @@ def orn_fresh():
     print("speeds", sorted(speeds.items())); print("years", sorted(years.items())); print("agencies", agencies.most_common(5))
 
 
-show("London open data services", ldn_open)
-show("Hub search", hub)
-show("ORN freshness in London", orn_fresh)
+
+OD = "https://maps.london.ca/server/rest/services/OpenData/OpenData_Transportation/MapServer"
+
+
+def ldn_speed():
+    from collections import Counter
+    m = get(OD + "/15", {"f": "pjson"})
+    print("name", m.get("name"), "max", m.get("maxRecordCount"), "geom", m.get("geometryType"))
+    print("fields", [(f["name"], f["type"], f.get("alias")) for f in m.get("fields", [])])
+    print("count", get(OD + "/15/query", {"where": "1=1", "returnCountOnly": "true", "f": "json"}))
+    s = get(OD + "/15/query", {"where": "1=1", "outFields": "*", "f": "geojson", "outSR": "4326", "resultRecordCount": "5"})
+    for ft in s.get("features", []):
+        print("props", ft["properties"], "|", ft["geometry"]["type"], str(ft["geometry"]["coordinates"])[:120])
+    num = [f["name"] for f in m.get("fields", []) if f["type"] in ("esriFieldTypeSmallInteger", "esriFieldTypeInteger", "esriFieldTypeDouble") and f["name"] not in ("OBJECTID",) and "SHAPE" not in f["name"].upper()]
+    print("numeric fields", num)
+    for fld in num[:3]:
+        r = get(OD + "/15/query", {"where": "1=1", "outFields": fld, "returnGeometry": "false", "f": "json", "resultRecordCount": "5000"})
+        print(fld, sorted(Counter(ft["attributes"][fld] for ft in r.get("features", [])).items(), key=lambda x: str(x[0])))
+
+
+def ldn_slr():
+    m = get(OD + "/7", {"f": "pjson"})
+    print("Single Line Roads fields", [(f["name"], f["type"]) for f in m.get("fields", [])])
+    print("count", get(OD + "/7/query", {"where": "1=1", "returnCountOnly": "true", "f": "json"}))
+
+
+def roadwork():
+    m = get("https://maps.london.ca/server/rest/services/RoadWork/MapServer/0", {"f": "pjson"})
+    print("RoadWork Ongoing", m.get("geometryType"), [f["name"] for f in m.get("fields", [])])
+    s = get("https://maps.london.ca/server/rest/services/RoadWork/MapServer/0/query", {"where": "1=1", "outFields": "*", "f": "json", "returnGeometry": "false", "resultRecordCount": "3"})
+    for ft in s.get("features", []): print("  ", {k: v for k, v in ft["attributes"].items() if v not in (None, "")})
+
+
+def orn_fresh():
+    from collections import Counter
+    import time
+    s = get(f"{LIO}/LIO_Open09/MapServer/0/query", {"geometry": "-81.30,42.95,-81.20,43.01", "geometryType": "esriGeometryEnvelope",
+        "inSR": "4326", "spatialRel": "esriSpatialRelIntersects", "outFields": "OGF_ID", "returnGeometry": "false", "f": "json", "resultRecordCount": "600"})
+    ids = [str(int(f["attributes"]["OGF_ID"])) for f in s.get("features", [])]
+    speeds, years, covered = Counter(), Counter(), set()
+    for i in range(0, len(ids), 50):
+        r = get(f"{LIO}/LIO_Open09/MapServer/13/query", {"where": "ORN_ROAD_NET_ELEMENT_ID in (" + ",".join(ids[i:i+50]) + ")",
+            "outFields": "ORN_ROAD_NET_ELEMENT_ID,SPEED_LIMIT,EFFECTIVE_DATETIME", "f": "json"})
+        for ft in r.get("features", []):
+            a = ft["attributes"]; covered.add(a["ORN_ROAD_NET_ELEMENT_ID"]); speeds[a["SPEED_LIMIT"]] += 1
+            years[time.gmtime(a["EFFECTIVE_DATETIME"] / 1000).tm_year] += 1
+    print("elements", len(ids), "with speed", len(covered)); print("speeds", sorted(speeds.items())); print("years", sorted(years.items()))
+
+
+show("London Speed Limits layer", ldn_speed)
+show("London Single Line Roads", ldn_slr)
+show("London RoadWork", roadwork)
+show("ORN freshness central London", orn_fresh)
