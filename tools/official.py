@@ -38,16 +38,18 @@ def _get(url, params, post=False, tries=4):
 
 
 def _all_features(url, params, page):
-    out, off = [], 0
-    while True:
-        j = _get(url + "/query", dict(params, resultOffset=off, resultRecordCount=page), post=True)
-        feats = j.get("features", [])
-        out += feats
-        if len(feats) < page and not j.get("exceededTransferLimit") and not (j.get("properties") or {}).get("exceededTransferLimit"):
-            break
-        if not feats:
-            break
-        off += len(feats)
+    """Every feature matching the query, page by page (the server caps each reply)."""
+    base = {k: v for k, v in params.items() if k not in ("outFields", "f", "outSR")}
+    total = _get(url + "/query", dict(base, returnCountOnly="true", f="json"), post=True).get("count", 0)
+    ids = _get(url + "/query", dict(base, returnIdsOnly="true", f="json"), post=True).get("objectIds") or []
+    ids.sort()
+    out = []
+    for i in range(0, len(ids), page):
+        chunk = ids[i:i + page]
+        j = _get(url + "/query", {"objectIds": ",".join(str(x) for x in chunk), "outFields": params.get("outFields", "*"),
+                                  "f": params.get("f", "geojson"), "outSR": params.get("outSR", "4326")}, post=True)
+        out += j.get("features", [])
+    print(f"   {url.rsplit('/', 3)[-3]}: {len(out)} of {total} features", flush=True)
     return out
 
 
@@ -65,7 +67,7 @@ def load_city(bbox):
     s, w, n, e = bbox
     feats = _all_features(CITY_URL, {"where": "1=1", "outFields": "MaxSpeed,Highway,Source", "f": "geojson", "outSR": "4326",
                                       "geometry": f"{w},{s},{e},{n}", "geometryType": "esriGeometryEnvelope", "inSR": "4326",
-                                      "spatialRel": "esriSpatialRelIntersects"}, 1000)
+                                      "spatialRel": "esriSpatialRelIntersects"}, 500)
     out = []
     for f in feats:
         sp = (f.get("properties") or {}).get("MaxSpeed")
@@ -94,7 +96,7 @@ def load_orn(bbox):
     s, w, n, e = bbox
     feats = _all_features(ORN_ROADS, {"where": "1=1", "outFields": "OGF_ID", "f": "geojson", "outSR": "4326",
                                       "geometry": f"{w},{s},{e},{n}", "geometryType": "esriGeometryEnvelope", "inSR": "4326",
-                                      "spatialRel": "esriSpatialRelIntersects"}, 2000)
+                                      "spatialRel": "esriSpatialRelIntersects"}, 500)
     geoms = {}
     for f in feats:
         oid = int((f.get("properties") or {}).get("OGF_ID") or 0)
