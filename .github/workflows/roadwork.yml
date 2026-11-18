@@ -1,0 +1,36 @@
+name: Update road work (construction) data
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 9 * * *"   # daily, ~4-5 AM in London, Ontario
+  push:
+    paths:
+      - "tools/build_roadwork.py"
+      - ".github/workflows/roadwork.yml"
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download ongoing road work
+        run: python3 tools/build_roadwork.py
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add roads/roadwork.json
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Update road work data"
+          git pull --rebase -q origin main
+          git push
+      - name: Republish GitHub Pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds" || true
