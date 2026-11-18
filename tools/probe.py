@@ -98,6 +98,56 @@ def orn_area_count():
     print("ORN elements in London area", s)
 
 
-show("London services", ldn_root)
-show("ORN speed table", orn_speed)
-show("ORN London count", orn_area_count)
+
+def ldn_open():
+    base = "https://maps.london.ca/server/rest/services"
+    for u in [base + "/OpenData", base + "/SLRN/MapServer", base + "/References/SLRN/MapServer", base + "/RoadWork/MapServer", base + "/StreetFeatures/MapServer"]:
+        try:
+            m = get(u, {"f": "pjson"})
+            if "services" in m: print(u, [(x["name"], x["type"]) for x in m["services"]])
+            else: print(u, m.get("error") or [(l["id"], l["name"]) for l in m.get("layers", [])])
+        except Exception as e:
+            print(u, "ERR", repr(e))
+    for u in [base + "/SLRN/MapServer/0", base + "/References/SLRN/MapServer/0"]:
+        try:
+            m = get(u, {"f": "pjson"}); print(u, m.get("name"), [f["name"] for f in m.get("fields", [])])
+        except Exception as e: print(u, "ERR", repr(e))
+
+
+def hub():
+    for q in ["speed limit", "speed limits london"]:
+        try:
+            m = get("https://hub.arcgis.com/api/v3/datasets", {"q": q, "filter[source]": "City of London", "page[size]": "10"})
+            for d in m.get("data", []):
+                a = d.get("attributes", {})
+                print(q, "|", a.get("name"), "|", a.get("source"), "|", a.get("url"), "|", a.get("modified"))
+        except Exception as e:
+            print("hub ERR", repr(e))
+    try:
+        m = get("https://opendata.london.ca/api/search/v1/collections/dataset/items", {"q": "speed", "limit": "10"})
+        for f in m.get("features", []):
+            pr = f.get("properties", {}); print("opendata |", pr.get("title"), "|", pr.get("url"), "|", pr.get("modified"))
+    except Exception as e:
+        print("opendata ERR", repr(e))
+
+
+def orn_fresh():
+    from collections import Counter
+    s = get(f"{LIO}/LIO_Open09/MapServer/0/query", {"geometry": "-81.40,42.90,-81.10,43.05", "geometryType": "esriGeometryEnvelope",
+        "inSR": "4326", "spatialRel": "esriSpatialRelIntersects", "outFields": "OGF_ID", "returnGeometry": "false", "f": "json", "resultRecordCount": "1500"})
+    ids = [str(int(f["attributes"]["OGF_ID"])) for f in s.get("features", [])]
+    print("sample elements", len(ids))
+    speeds, years, agencies, covered = Counter(), Counter(), Counter(), set()
+    for i in range(0, len(ids), 200):
+        r = get(f"{LIO}/LIO_Open09/MapServer/13/query", {"where": "ORN_ROAD_NET_ELEMENT_ID in (" + ",".join(ids[i:i+200]) + ")",
+            "outFields": "ORN_ROAD_NET_ELEMENT_ID,SPEED_LIMIT,AGENCY_NAME,EFFECTIVE_DATETIME", "f": "json"})
+        for ft in r.get("features", []):
+            a = ft["attributes"]; covered.add(a["ORN_ROAD_NET_ELEMENT_ID"]); speeds[a["SPEED_LIMIT"]] += 1; agencies[a["AGENCY_NAME"]] += 1
+            import time; years[time.gmtime(a["EFFECTIVE_DATETIME"] / 1000).tm_year] += 1
+    print("elements with a speed record", len(covered), "of", len(ids))
+    print("speeds", sorted(speeds.items())); print("years", sorted(years.items())); print("agencies", agencies.most_common(5))
+
+
+show("London open data services", ldn_open)
+show("Hub search", hub)
+show("ORN freshness in London", orn_fresh)
