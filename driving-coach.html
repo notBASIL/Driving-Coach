@@ -9,6 +9,11 @@
 <meta name="apple-mobile-web-app-title" content="Driving Coach">
 <meta name="theme-color" content="#0d1210">
 <title>Driving Coach</title>
+<script>
+(function(){try{var s=JSON.parse(localStorage.getItem('tc_settings')||'{}'),t=s.theme||'classic';
+if(t==='auto'){var h=new Date().getHours();t=(h>=7&&h<19)?'daylight':'midnight';}
+if(t!=='classic')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+</script>
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
@@ -16,7 +21,91 @@
   --bg:#0d1210; --card:#161d1a; --card2:#1d2622; --line:#2a3530;
   --text:#eef3f0; --muted:#93a39b; --green:#4cc06a; --amber:#f0a030;
   --red:#ef5350; --blue:#5aa9e6; --star:#f08a24;
+  --accent:#4cc06a; --onaccent:#fff; --nav:#111816; --toast:#222c28; --switchoff:#3a4540;
+  --staroff:#3c4742; --night:#b9a7ff; --okb:#2f5a3a; --warnb:#5a4520; --badb:#5a2a2a; --signring:#d32f2f;
+  --numfont:inherit; color-scheme:dark;
 }
+html[data-theme="midnight"]{
+  --bg:#0B1020; --card:#141B2E; --card2:#1C2540; --line:#2A3555; --text:#EEF2FF; --muted:#9AA6C7;
+  --green:#3DDC97; --amber:#FFB547; --red:#FF6B6B; --blue:#7FA9FF; --star:#FFB547;
+  --accent:#4F8BFF; --onaccent:#fff; --nav:#0F1528; --toast:#1C2540; --switchoff:#2A3555;
+  --staroff:#2A3555; --night:#B6A8FF; --okb:#1F5A45; --warnb:#5A4520; --badb:#5A2A33; --signring:#FF6B6B;
+}
+html[data-theme="daylight"]{
+  --bg:#F6F4EF; --card:#FFFFFF; --card2:#EFECE5; --line:#E2DED4; --text:#15171A; --muted:#5E6168;
+  --green:#0F7B6C; --amber:#B45F06; --red:#C8372D; --blue:#1F5FB8; --star:#E59A12;
+  --accent:#E2553A; --onaccent:#fff; --nav:#FFFFFF; --toast:#FFFFFF; --switchoff:#CFCAC0;
+  --staroff:#E2DED4; --night:#5B4BC4; --okb:#9FD3C9; --warnb:#E8C79A; --badb:#EDB3AE; --signring:#C8372D;
+  color-scheme:light;
+}
+html[data-theme="hud"]{
+  --bg:#0E0E10; --card:#18181B; --card2:#222226; --line:#2E2E33; --text:#F4F4F5; --muted:#A1A1AA;
+  --green:#C6F432; --amber:#FFB020; --red:#FF5C7A; --blue:#A99EFF; --star:#C6F432;
+  --accent:#C6F432; --onaccent:#0E0E10; --nav:#121214; --toast:#222226; --switchoff:#2E2E33;
+  --staroff:#2E2E33; --night:#A99EFF; --okb:#4A5A1A; --warnb:#5A4520; --badb:#5A2333; --signring:#FF5C7A;
+  --numfont:ui-monospace,"SF Mono",Menlo,monospace;
+}
+.speed,.big,.cell b{font-family:var(--numfont)}
+html[data-theme="glance"]{
+  --bg:#1A1D23; --card:rgba(0,0,0,.20); --card2:rgba(0,0,0,.22); --line:rgba(255,255,255,.20); --text:#FFFFFF; --muted:rgba(255,255,255,.86);
+  --green:#FFFFFF; --amber:#FFE08A; --red:#FFFFFF; --blue:#FFFFFF; --star:#FFE08A;
+  --accent:#FFFFFF; --onaccent:#111418; --nav:rgba(0,0,0,.28); --toast:#111418; --switchoff:rgba(255,255,255,.3);
+  --staroff:rgba(255,255,255,.3); --night:#E2DBFF; --okb:rgba(255,255,255,.35); --warnb:rgba(255,224,138,.6); --badb:rgba(255,255,255,.6); --signring:#C62828;
+}
+html[data-theme="glance"][data-gstate="ok"]{--bg:#12784A}
+html[data-theme="glance"][data-gstate="warn"]{--bg:#A64B00}
+html[data-theme="glance"][data-gstate="alert"]{--bg:#B3261E;--signring:#111111}
+html[data-theme="glance"] body{transition:background-color .35s}
+html[data-theme="road"]{
+  --bg:#151A33; --card:#1E2444; --card2:#262D52; --line:#323A63; --text:#F1F3FF; --muted:#A3AACC;
+  --green:#47D18C; --amber:#FFB547; --red:#FF6B6B; --blue:#8DB0FF; --star:#FFC94D;
+  --accent:#5B8CFF; --onaccent:#fff; --nav:#11152A; --toast:#262D52; --switchoff:#323A63;
+  --staroff:#323A63; --night:#B6A8FF; --okb:#1F5A45; --warnb:#5A4520; --badb:#5A2A33; --signring:#E5484D;
+}
+html[data-theme="glance"] .btn.stop{background:#111418;color:#fff}
+html[data-theme="glance"] .btn.sec{background:rgba(0,0,0,.22)}
+html[data-theme] #classicDrive{display:none}
+html:not([data-theme]) #themeDrive{display:none}
+.t-card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:16px;margin:12px 0}
+.t-road{display:flex;align-items:center;gap:8px;font-size:19px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t-road svg{flex:none}
+.t-src{font-size:13px;color:var(--muted)}
+.t-num{font-family:var(--numfont);font-weight:700;line-height:.9;font-variant-numeric:tabular-nums}
+.t-sign{border-radius:50%;background:#fff;border:solid var(--signring);box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#111;flex:none;padding:0;cursor:pointer}
+.t-sign b{font-family:var(--numfont);line-height:1}
+.t-sign i{font-style:normal;font-size:9px;font-weight:700;letter-spacing:1px;color:#444}
+.t-sign.unknown{border-color:#888;color:#777}
+.t-counters{display:flex;gap:6px;margin-top:12px}
+.t-counters div{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 0;border-radius:12px;background:var(--card2);color:var(--muted)}
+.t-counters div.hit{color:var(--amber)}
+.t-counters b{font-family:var(--numfont);font-size:17px;color:var(--text)}
+.t-counters div.hit b{color:var(--amber)}
+.t-counters span{font-size:10px}
+.t-scorerow{display:flex;align-items:center;justify-content:space-between}
+.t-bar{height:10px;border-radius:5px;background:var(--card2);overflow:hidden;margin:12px 0 6px}
+.t-bar i{display:block;height:100%;border-radius:5px}
+.t-seg{display:flex;gap:3px;margin-top:12px}
+.t-seg i{flex:1;height:26px;border-radius:3px;background:var(--card2)}
+.f-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.f-row:last-child{border-bottom:0}
+.f-ic{width:38px;height:38px;border-radius:11px;background:var(--card2);display:flex;align-items:center;justify-content:center;flex:none}
+.f-main{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0}
+.f-top{display:flex;justify-content:space-between;font-weight:600;font-size:15px}
+.f-top b{font-family:var(--numfont)}
+.f-bar{height:6px;border-radius:3px;background:var(--card2);overflow:hidden}
+.f-bar i{display:block;height:100%}
+.f-sub{font-size:12px;color:var(--muted)}
+html[data-theme="daylight"] .sign{box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:70;display:flex;align-items:flex-end}
+.sheet[hidden]{display:none}
+.sheet-card{background:var(--card);color:var(--text);width:100%;max-width:560px;margin:0 auto;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+.theme-opt{display:flex;align-items:center;gap:14px;width:100%;min-height:56px;padding:12px 14px;margin:8px 0;border-radius:14px;border:2px solid var(--line);background:var(--card2);color:var(--text);font-size:16px;font-weight:600;text-align:left}
+.theme-opt.on{border-color:var(--accent)}
+.theme-opt .sw{display:flex;gap:4px;flex:none}
+.theme-opt .sw i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(128,128,128,.4)}
+.theme-opt small{display:block;font-weight:500;color:var(--muted);font-size:12px;margin-top:2px}
+@media (max-width:430px){#clock{display:none}}
+.iconbtn{width:44px;height:44px;border-radius:22px;border:1px solid var(--line);background:var(--card2);color:var(--text);display:flex;align-items:center;justify-content:center;padding:0}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif}
@@ -27,14 +116,14 @@ h2{font-size:17px;margin:20px 0 10px}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 4px;max-width:560px;margin:0 auto}
 .pills{display:flex;gap:6px;flex-wrap:wrap;padding:4px 16px 0;max-width:560px;margin:0 auto}
 .pill{font-size:12px;padding:4px 9px;border-radius:999px;background:var(--card2);color:var(--muted);border:1px solid var(--line)}
-.pill.ok{color:var(--green);border-color:#2f5a3a}
-.pill.warn{color:var(--amber);border-color:#5a4520}
-.pill.bad{color:var(--red);border-color:#5a2a2a}
+.pill.ok{color:var(--green);border-color:var(--okb)}
+.pill.warn{color:var(--amber);border-color:var(--warnb)}
+.pill.bad{color:var(--red);border-color:var(--badb)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:12px 0}
 .speedrow{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .speed{font-size:84px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
 .speed small{font-size:18px;color:var(--muted);font-weight:500;margin-left:4px}
-.sign{width:86px;height:86px;border-radius:50%;background:#fff;border:9px solid #d32f2f;color:#111;
+.sign{width:86px;height:86px;border-radius:50%;background:#fff;border:9px solid var(--signring);color:#111;
   display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:30px;flex:none}
 .sign span{font-size:10px;font-weight:600;color:#555;margin-top:-2px}
 .sign.unknown{border-color:#888;color:#888}
@@ -43,40 +132,40 @@ h2{font-size:17px;margin:20px 0 10px}
 .livescore{display:flex;align-items:center;justify-content:space-between}
 .big{font-size:40px;font-weight:700;font-variant-numeric:tabular-nums}
 .stars{color:var(--star);letter-spacing:2px;font-size:20px;white-space:nowrap}
-.stars .off{color:#3c4742}
+.stars .off{color:var(--staroff)}
 .muted{color:var(--muted)}
 .small{font-size:13px}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
 .cell{background:var(--card2);border-radius:12px;padding:10px 8px;text-align:center}
 .cell b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
 .cell span{font-size:11px;color:var(--muted)}
-.btn{display:block;width:100%;border:0;border-radius:14px;padding:18px;font-size:19px;font-weight:700;color:#fff;background:var(--green);margin-top:10px}
-.btn.stop{background:var(--red)}
+.btn{display:block;width:100%;border:0;border-radius:14px;padding:18px;font-size:19px;font-weight:700;color:var(--onaccent);background:var(--accent);margin-top:10px}
+.btn.stop{background:var(--red);color:#fff}
 .btn.sec{background:var(--card2);color:var(--text);border:1px solid var(--line);font-size:16px;padding:14px;font-weight:600}
 .btn:active{opacity:.8}
 .flash{position:fixed;inset:0;pointer-events:none;border:14px solid transparent;transition:border-color .2s;z-index:50}
 .flash.on{border-color:var(--red)}
 .flash.amber{border-color:var(--amber)}
-.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);transform:translateX(-50%);background:#222c28;
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 14px);transform:translateX(-50%);background:var(--toast);
   border:1px solid var(--line);color:var(--text);padding:12px 18px;border-radius:14px;font-weight:600;z-index:60;
   opacity:0;transition:opacity .25s;max-width:90%;text-align:center}
 .toast.show{opacity:1}
-nav{position:fixed;bottom:0;left:0;right:0;background:#111816;border-top:1px solid var(--line);
+nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav);border-top:1px solid var(--line);
   display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:40}
 nav button{flex:1;background:none;border:0;color:var(--muted);padding:10px 0 12px;font-size:12px;font-weight:600}
 nav button .i{display:block;font-size:20px;margin-bottom:2px}
-nav button.active{color:var(--green)}
+nav button.active{color:var(--accent)}
 .view{display:none}.view.active{display:block}
 .trip{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;
   background:var(--card);border:1px solid var(--line);border-radius:14px;margin:8px 0}
 .trip .l b{display:block;font-size:15px}
 .trip .r{text-align:right}
 .tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:6px;background:var(--card2);color:var(--muted);margin-left:4px}
-.tag.night{color:#b9a7ff}
+.tag.night{color:var(--night)}
 .factor{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:10px 0;overflow:hidden}
 .factor .h{display:flex;align-items:center;justify-content:space-between;padding:14px}
 .factor .h .n{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
-.factor .h .n .ic{width:26px;text-align:center;color:var(--green);font-size:20px}
+.factor .h .n .ic{width:26px;text-align:center;color:var(--accent);font-size:20px}
 .factor .r{text-align:right}
 .factor .r small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 .factor .tip{border-top:1px solid var(--line);padding:10px 14px;font-size:13px;color:var(--muted)}
@@ -87,12 +176,12 @@ nav button.active{color:var(--green)}
 .row:last-child{border-bottom:0}
 .seg{display:flex;background:var(--card2);border-radius:10px;padding:3px}
 .seg button{border:0;background:none;color:var(--muted);padding:7px 10px;border-radius:8px;font-weight:600;font-size:13px}
-.seg button.on{background:var(--green);color:#fff}
-.switch{width:50px;height:30px;border-radius:15px;background:#3a4540;position:relative;border:0;flex:none}
+.seg button.on{background:var(--accent);color:var(--onaccent)}
+.switch{width:50px;height:30px;border-radius:15px;background:var(--switchoff);position:relative;border:0;flex:none}
 .switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .15s}
-.switch.on{background:var(--green)}.switch.on::after{left:23px}
+.switch.on{background:var(--accent)}.switch.on::after{left:23px}
 input[type=number]{width:74px;background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:7px;font-size:16px;text-align:center}
-.back{background:none;border:0;color:var(--green);font-size:16px;font-weight:600;padding:8px 0}
+.back{background:none;border:0;color:var(--accent);font-size:16px;font-weight:600;padding:8px 0}
 .bar{height:8px;background:var(--card2);border-radius:4px;overflow:hidden;margin-top:6px}
 .bar i{display:block;height:100%;background:var(--green)}
 .note{font-size:12px;color:var(--muted);line-height:1.45}
@@ -103,23 +192,29 @@ textarea{width:100%;height:120px;background:var(--card2);color:var(--text);borde
 <body>
 <div class="flash" id="flash"></div>
 <div class="toast" id="toast"></div>
+<div class="sheet" id="themeSheet" hidden>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="themeTitle">
+    <h2 id="themeTitle" style="margin:4px 4px 6px">Theme</h2>
+    <div id="themeList"></div>
+    <button class="btn sec" id="themeDone">Done</button>
+  </div>
+</div>
 
-<div class="topbar"><h1>Driving Coach <span class="muted" style="font-size:12px;font-weight:500">v2.3</span></h1><div style="display:flex;align-items:center;gap:12px"><span class="muted small" id="clock"></span><button id="muteBtn" style="background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:7px 12px;font-size:15px;font-weight:600">🔊 Sound on</button></div></div>
+<div class="topbar"><h1>Driving Coach <span class="muted" style="font-size:12px;font-weight:500">v3</span></h1><div style="display:flex;align-items:center;gap:12px"><span class="muted small" id="clock"></span><button id="themeBtn" class="iconbtn" aria-label="Choose theme"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4-4-7.4-9-7.4z"></path><circle cx="7.5" cy="11" r="1.2"></circle><circle cx="10.5" cy="7" r="1.2"></circle><circle cx="15" cy="7.5" r="1.2"></circle></svg></button>
+<button id="muteBtn" style="background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:7px 12px;font-size:15px;font-weight:600">🔊 Sound on</button></div></div>
 <div class="pills" id="pills"></div>
 <div class="wrap" id="updateBar" style="display:none;padding-bottom:0"><button class="btn" id="updateBtn" style="margin-top:6px;padding:14px;font-size:16px;background:var(--blue)">New version available: tap to update</button></div>
 
 <!-- DRIVE -->
 <section class="view active" id="v-drive"><div class="wrap">
+  <div id="themeDrive"></div>
+  <div id="classicDrive">
   <div class="card">
     <div id="roadname" style="font-size:22px;font-weight:700;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📍 —</div>
     <div class="speedrow">
       <div><div class="speed" id="spd">0<small>km/h</small></div>
         <div class="muted small" id="limitsrc">Speed limit: —</div></div>
       <div class="sign unknown" id="sign">—<span>LIMIT</span></div>
-    </div>
-    <div id="picker" style="display:none;margin-top:12px">
-      <div class="small muted" id="pickerTitle" style="margin-bottom:8px"></div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="pickerBtns"></div>
     </div>
   </div>
   <div class="card">
@@ -136,6 +231,11 @@ textarea{width:100%;height:120px;background:var(--card2);color:var(--text);borde
       <div class="cell"><b id="c-km">0.0</b><span id="c-time">km · 0 min</span></div>
     </div>
   </div>
+  </div>
+  <div id="picker" class="card" style="display:none">
+    <div class="small muted" id="pickerTitle" style="margin-bottom:8px"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="pickerBtns"></div>
+  </div>
   <button class="btn" id="startbtn">Start driving</button>
   <button class="btn sec" id="endtripbtn" style="display:none">End this trip now</button>
   <p class="note" style="margin-top:14px">Keep this screen open on your phone mount. iPhone pauses tracking when you switch to another app, and touching the phone while moving counts as phone use, just like TD's app.
@@ -150,6 +250,8 @@ textarea{width:100%;height:120px;background:var(--card2);color:var(--text);borde
 
 <!-- SETTINGS -->
 <section class="view" id="v-settings"><div class="wrap">
+  <h2>Look</h2>
+  <div class="card"><div class="row"><div>Theme<div class="note" id="themeNow"></div></div><button class="btn sec" id="themeOpen" style="width:auto;margin:0;padding:10px 16px">Change</button></div></div>
   <h2>Coaching</h2>
   <div class="card">
     <div class="row"><div>Sensitivity<div class="note">Strict flags gentler events, so you stay well under TD's limits.</div></div>
@@ -392,7 +494,7 @@ const store = {
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
   del(k){ try { localStorage.removeItem(k); } catch(e){} }
 };
-let settings = Object.assign({ muted:false, mode:'strict', beep:true, voice:true, sayLimit:true, autoEnd:5, limSrc:'auto', defLimit:50 }, store.get('tc_settings', {}));
+let settings = Object.assign({ theme:'classic', muted:false, mode:'strict', beep:true, voice:true, sayLimit:true, autoEnd:5, limSrc:'auto', defLimit:50 }, store.get('tc_settings', {}));
 let trips = store.get('tc_trips', []);
 const saveSettings = () => store.set('tc_settings', settings);
 const saveTrips = () => store.set('tc_trips', trips);
@@ -756,6 +858,132 @@ function renderPills(){
   pills.push([settings.mode === 'strict' ? 'Strict' : 'Normal', '']);
   $('pills').innerHTML = pills.map(([t, c]) => `<span class="pill ${c}">${t}</span>`).join('');
 }
+/* ---------- themed layouts ---------- */
+const ICONS = {
+  pin: '<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"></path><circle cx="12" cy="10" r="2.5"></circle>',
+  brake: '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16.5v.5"></path>',
+  accel: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"></path>',
+  corner: '<path d="M4 20v-6a6 6 0 0 1 6-6h10"></path><path d="M16 4l4 4-4 4"></path>',
+  speed: '<path d="M3 16a9 9 0 0 1 18 0"></path><path d="M12 16l4-5"></path>',
+  distraction: '<rect x="7" y="2.5" width="10" height="19" rx="2"></rect><path d="M4 4l16 16"></path>',
+  duration: '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path>'
+};
+const svgIcon = (n, size, color) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color || 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+const LIMIT_TAG = { city: 'CITY', law: 'LAW', ontario: 'ONT.', map: 'POSTED', street: 'POSTED*', est: 'EST.', you: 'YOURS', fixed: 'FIXED', fallback: 'GUESS' };
+const COUNTER_LABEL = { brake: 'Brakes', accel: 'Starts', corner: 'Turns', speed: 'Speeding', distraction: 'Phone' };
+const EV_NAME = { brake: 'Hard brake', accel: 'Fast start', corner: 'Sharp turn', speed: 'Speeding', distraction: 'Phone use' };
+const nowT = () => engine.hist.length ? engine.hist[engine.hist.length - 1].t : Date.now();
+function driveState(){
+  const on = active || demo.running, T = engine.trip, kmh = on ? Math.round(engine.lastSpeed * 3.6) : 0, L = lastLimit;
+  const r = T ? scoreTrip(T) : null;
+  const counts = {}; ['brake', 'accel', 'corner', 'speed', 'distraction'].forEach(t => counts[t] = T ? T.events.filter(e => e.type === t).length : 0);
+  const limit = on && L.limit ? L.limit : null, over = limit ? kmh - limit : null;
+  const lastEv = T && T.events.length ? T.events[T.events.length - 1] : null;
+  const recent = lastEv && nowT() - lastEv.t < 8000;
+  const status = !on ? 'idle' : over != null && over > 10 ? 'alert' : (recent || (over != null && over > 3)) ? 'warn' : T ? 'ok' : 'idle';
+  const road = on ? (L.name ? L.name.replace(/^./, c => c.toUpperCase()) : (settings.limSrc === 'auto' ? 'Finding your road…' : '—')) : 'Not driving';
+  const srcText = !limit ? (settings.limSrc === 'off' ? 'Speed checks off' : (on ? 'No speed limit yet' : 'Tap Start driving before you pull out')) :
+    ({ city: 'City of London by-law', law: 'City street: 50 under Ontario law', ontario: 'Ontario Road Network', map: 'OpenStreetMap', you: 'Your correction',
+       street: 'Posted limit from the same street', est: 'Estimated from road type', fixed: 'Fixed limit (Settings)' })[L.src] || 'Guess: tap the sign to fix when stopped';
+  return { on, T, r, kmh, limit, over, src: L.src, tag: LIMIT_TAG[L.src] || 'LIMIT', counts, lastEv, status, road, srcText,
+    tripLine: T ? `This trip · ${Math.round(r.mins)} min · ${r.km.toFixed(1)} km` : (active ? 'Waiting: trip starts above 15 km/h' : 'Not driving') };
+}
+function tSign(st, size){
+  const unk = !st.limit || st.src === 'fallback';
+  return `<button type="button" class="t-sign${unk ? ' unknown' : ''}" data-fix="1" aria-label="Speed limit ${st.limit || 'unknown'}, tap to correct when stopped" style="width:${size}px;height:${size}px;border-width:${Math.round(size * .1)}px">
+    <b style="font-size:${Math.round(size * .36)}px">${st.limit || '—'}</b><i>${st.limit ? st.tag : 'LIMIT'}</i></button>`;
+}
+function tRoad(st, color){ return `<div class="t-road">${svgIcon('pin', 18, color || 'var(--accent)')}<span>${esc(st.road || '—')}</span></div>`; }
+function tCounters(st){
+  return `<div class="t-counters">${Object.keys(COUNTER_LABEL).map(k => `<div class="${st.counts[k] ? 'hit' : ''}">${svgIcon(k, 18)}<b>${st.counts[k]}</b><span>${COUNTER_LABEL[k]}</span></div>`).join('')}</div>`;
+}
+function tScore(st){
+  const sc = st.r ? Math.round(st.r.overall) : '—';
+  return `<div class="t-card"><div class="t-scorerow"><div><div class="t-src">${st.tripLine}</div><div class="t-num" style="font-size:36px;margin-top:4px">${sc}</div></div>
+    <div style="text-align:right">${st.r ? starHTML(starsFor(st.r.overall)) : ''}<div class="t-src">${st.r ? labelFor(st.r.overall) : ''}</div></div></div>${tCounters(st)}</div>`;
+}
+function underText(st){
+  if (st.over == null) return st.srcText;
+  return st.over > 0 ? `${st.over} over the limit` : `${-st.over} under the limit`;
+}
+const DRIVE_LAYOUTS = {
+  midnight(st){
+    const scale = Math.max(120, (st.limit || 80) * 1.5), r = 108, C = 2 * Math.PI * r * .75;
+    const frac = Math.min(st.kmh / scale, 1), col = st.over > 10 ? 'var(--red)' : st.over > 3 ? 'var(--amber)' : 'var(--accent)';
+    const la = (135 + 270 * Math.min((st.limit || 0) / scale, 1)) * Math.PI / 180;
+    const ring = `<svg width="250" height="226" viewBox="0 0 250 226" aria-hidden="true">
+      <circle cx="125" cy="125" r="${r}" fill="none" stroke="var(--card2)" stroke-width="16" stroke-linecap="round" stroke-dasharray="${C.toFixed(0)} 999" transform="rotate(135 125 125)"></circle>
+      <circle cx="125" cy="125" r="${r}" fill="none" stroke="${col}" stroke-width="16" stroke-linecap="round" stroke-dasharray="${(C * frac).toFixed(0)} 999" transform="rotate(135 125 125)"></circle>
+      ${st.limit ? `<circle cx="${(125 + r * Math.cos(la)).toFixed(1)}" cy="${(125 + r * Math.sin(la)).toFixed(1)}" r="8" fill="var(--star)"></circle>` : ''}</svg>`;
+    return `<div class="t-card">${tRoad(st)}
+      <div style="position:relative;display:flex;justify-content:center;height:222px;margin-top:6px">${ring}
+        <div style="position:absolute;top:64px;left:0;right:0;display:flex;flex-direction:column;align-items:center">
+          <span class="t-num" style="font-size:80px">${st.kmh}</span>
+          <span class="t-src">km/h${st.limit ? ` · limit <b style="color:var(--star)">${st.limit}</b> ${st.tag}` : ''}</span></div></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span class="t-src">${underText(st)}</span>${tSign(st, 56)}</div></div>${tScore(st)}`;
+  },
+  daylight(st){
+    const pct = st.limit ? Math.min(st.kmh / st.limit, 1) * 100 : 0, col = st.over > 10 ? 'var(--red)' : st.over > 0 ? 'var(--amber)' : 'var(--green)';
+    return `<div class="t-card">${tRoad(st)}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px">
+        <div style="display:flex;align-items:baseline;gap:6px"><span class="t-num" style="font-size:100px;font-weight:800;letter-spacing:-4px">${st.kmh}</span><span class="t-src" style="font-size:17px">km/h</span></div>
+        ${tSign(st, 96)}</div>
+      <div class="t-bar"><i style="width:${pct.toFixed(0)}%;background:${col}"></i></div>
+      <div class="t-src">${st.over == null ? st.srcText : underText(st) + ' · ' + st.srcText}</div></div>${tScore(st)}`;
+  },
+  hud(st){
+    const scale = Math.max(100, (st.limit || 80) * 1.5), n = 18, lit = Math.round(Math.min(st.kmh / scale, 1) * n), limSeg = st.limit ? Math.round(st.limit / scale * n) : n;
+    const segs = Array.from({ length: n }, (_, i) => `<i style="background:${i < lit ? (i >= limSeg ? 'var(--red)' : 'var(--accent)') : (i === limSeg - 1 ? 'var(--line)' : 'var(--card2)')}"></i>`).join('');
+    return `<div style="margin:12px 0">${tRoad(st)}
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:14px">
+        <span class="t-num" style="font-size:118px;letter-spacing:-6px;color:${st.over > 10 ? 'var(--red)' : 'var(--text)'}">${st.kmh}</span>
+        <button type="button" data-fix="1" aria-label="Speed limit ${st.limit || 'unknown'}, tap to correct when stopped" style="background:none;border:0;padding:0;color:var(--text);display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+          <span style="font-size:12px;letter-spacing:2px;color:var(--muted)">LIMIT · ${st.limit ? st.tag : '—'}</span>
+          <span class="t-num" style="font-size:46px;color:var(--blue)">${st.limit || '—'}</span></button></div>
+      <div class="t-seg">${segs}</div>
+      <div style="display:flex;justify-content:space-between;font-family:var(--numfont);font-size:11px;color:var(--muted);margin-top:6px"><span>0</span><span>${underText(st)}</span><span>${Math.round(scale)}</span></div></div>${tScore(st)}`;
+  },
+  glance(st){
+    const head = { idle: st.on ? 'READY' : 'NOT DRIVING', ok: 'ALL GOOD', warn: st.over > 3 ? 'EASE OFF' : 'CAREFUL', alert: 'SLOW DOWN' }[st.status];
+    const ev = st.lastEv && st.status === 'warn' && !(st.over > 3) ? EV_NAME[st.lastEv.type] + ' just now' : '';
+    const sub = st.status === 'alert' ? 'Speeding counts against your Speed score' : ev || (st.T ? (st.r.overall >= 90 ? 'Smooth trip so far · on pace for 5 stars' : 'Keep it smooth to win back stars') : st.srcText);
+    return `<div style="display:flex;flex-direction:column;gap:16px;padding:10px 4px 4px">${tRoad(st, '#fff')}
+      <span style="font-size:15px;font-weight:800;letter-spacing:3px">${head}</span>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:baseline;gap:6px"><span class="t-num" style="font-size:124px;letter-spacing:-6px">${st.kmh}</span><span style="font-size:17px">km/h</span></div>${tSign(st, 112)}</div>
+      <div><div style="font-size:28px;font-weight:800">${st.over == null ? '' : underText(st)}</div><div style="font-size:15px;opacity:.92;margin-top:4px">${sub}</div></div></div>
+      <div class="t-card"><div class="t-scorerow"><span class="t-src">${st.tripLine}</span><span style="display:flex;align-items:center;gap:8px"><b style="font-size:18px">${st.r ? Math.round(st.r.overall) : ''}</b>${st.r ? starHTML(starsFor(st.r.overall)) : ''}</span></div>${tCounters(st)}</div>`;
+  },
+  road(st){
+    const W = 358, H = 300, ev = st.lastEv;
+    const evTxt = ev ? EV_NAME[ev.type].toLowerCase() + ' · ' + Math.max(0, Math.round((nowT() - ev.t) / 60000)) + ' min ago' : '';
+    const dashes = [[190, 3, 9], [214, 4, 14], [250, 6, 20], [300, 8, 28]].map(([y, w, h]) => `<rect x="${(179 - w / 2).toFixed(1)}" y="${y}" width="${w}" height="${h}" rx="2" fill="#F1F3FF"></rect>`).join('');
+    const scene = `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax meet" style="display:block" aria-hidden="true">
+      <rect width="${W}" height="${H}" fill="#151A33"></rect><rect y="170" width="${W}" height="${H - 170}" fill="#1B213F"></rect>
+      <polygon points="156,170 202,170 344,${H} 14,${H}" fill="#2A3156"></polygon>
+      <line x1="160" y1="170" x2="26" y2="${H}" stroke="#5B8CFF" stroke-width="6" stroke-linecap="round"></line>
+      <line x1="198" y1="170" x2="332" y2="${H}" stroke="#5B8CFF" stroke-width="6" stroke-linecap="round"></line>${dashes}
+      <polygon points="179,246 201,296 179,284 157,296" fill="#F1F3FF"></polygon>
+      ${ev ? `<circle cx="168" cy="206" r="9" fill="#FFB547"></circle><text x="168" y="210" text-anchor="middle" font-size="11" font-weight="800" fill="#151A33">!</text>` : ''}</svg>`;
+    return `<div style="position:relative;margin:12px 0;border-radius:22px;overflow:hidden;border:1px solid var(--line)">${scene}
+      <div style="position:absolute;top:14px;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="max-width:86%;padding:7px 14px;border-radius:9px;background:#1E6B45;border:2px solid #fff;color:#fff;font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(st.road || '—')}</div>
+        <div style="display:flex;align-items:center;gap:8px">${st.r ? starHTML(starsFor(st.r.overall)) + `<b class="t-num" style="font-size:19px">${Math.round(st.r.overall)}</b>` : '<span class="t-src">Score shows once you start moving</span>'}</div>
+        ${ev ? `<div style="display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(255,181,71,.16);color:#FFB547;font-size:12px;font-weight:600">${svgIcon(ev.type, 14, '#FFB547')}${evTxt}</div>` : ''}</div>
+      <div style="position:absolute;left:16px;bottom:96px"><span class="t-num" style="font-size:64px;color:${st.over > 10 ? 'var(--red)' : '#F1F3FF'}">${st.kmh}</span><div class="t-src">km/h</div></div>
+      <div style="position:absolute;right:14px;bottom:70px;display:flex;flex-direction:column;align-items:center">${tSign(st, 74)}<div style="width:5px;height:44px;background:#A3AACC"></div></div></div>
+      <div class="t-card" style="margin-top:0"><div class="t-scorerow"><span class="t-src">${st.tripLine}</span><span class="t-src" style="color:${st.over > 0 ? 'var(--amber)' : 'var(--green)'}">${st.over == null ? '' : underText(st)}</span></div>${tCounters(st)}</div>`;
+  }
+};
+let curView = 'drive';
+function renderThemed(){
+  const t = effectiveTheme(), box = $('themeDrive');
+  if (!DRIVE_LAYOUTS[t]) { document.documentElement.removeAttribute('data-gstate'); return; }
+  const st = driveState();
+  if (t === 'glance') document.documentElement.setAttribute('data-gstate', curView === 'drive' ? st.status : 'idle');
+  else document.documentElement.removeAttribute('data-gstate');
+  box.innerHTML = DRIVE_LAYOUTS[t](st);
+}
 function renderLive(){
   const T = engine.trip;
   const kmh = Math.round(engine.lastSpeed * 3.6);
@@ -800,6 +1028,7 @@ function renderLive(){
     $('c-km').textContent = '0.0'; $('c-time').textContent = 'km · 0 min';
   }
   renderPills();
+  renderThemed();
 }
 
 /* ---------- trips ---------- */
@@ -831,7 +1060,31 @@ function renderTripDetail(W, T){
     <div style="text-align:right">${starHTML(starsFor(r.overall))}<div class="muted small">${labelFor(r.overall)}</div></div></div>
     ${r.short ? '<p class="note">Under 1 km: TD ignores very short trips, so this one probably won\'t count.</p>' : ''}
     ${T.gaps ? `<p class="note">The coach was in the background ${T.gaps} time${T.gaps > 1 ? 's' : ''} during this trip, so some driving wasn't watched.</p>` : ''}</div>`;
-  for (const k of FACTORS) {
+  const themed = effectiveTheme() !== 'classic';
+  if (themed) {
+    const hero = effectiveTheme() === 'midnight';
+    html = `<button class="back" id="backBtn">‹ All trips</button>
+      <div class="t-card" style="${hero ? 'background:var(--accent);color:var(--onaccent);border-color:transparent' : ''}">
+        <div style="font-size:13px;opacity:.85">${fmtDate(T.start)} · ${fmtTime(T.start)} – ${fmtTime(T.end)}</div>
+        <div class="t-scorerow" style="margin-top:6px"><div><div class="t-num" style="font-size:56px">${Math.round(r.overall)}</div>
+          <div style="font-size:13px;opacity:.85;margin-top:6px">${r.km.toFixed(1)} km · ${Math.round(r.mins)} min · top ${T.maxKmh} km/h</div></div>
+          <div style="text-align:right">${starHTML(starsFor(r.overall))}<div style="font-weight:700;margin-top:4px">${labelFor(r.overall)}</div></div></div>
+        ${r.short ? `<p class="note" style="color:inherit;opacity:.85">Under 1 km: TD ignores very short trips, so this one probably won't count.</p>` : ''}
+        ${T.gaps ? `<p class="note" style="color:inherit;opacity:.85">The coach was in the background ${T.gaps} time${T.gaps > 1 ? 's' : ''} during this trip, so some driving wasn't watched.</p>` : ''}</div>
+      <div class="t-card" style="padding:4px 16px">`;
+    for (const k of FACTORS) {
+      const m = FACTOR_META[k], v = r.factors[k], evs = T.events.filter(e => e.type === k);
+      const s5 = v == null ? null : starsFor(v), col = s5 == null ? 'var(--muted)' : s5 >= 5 ? 'var(--green)' : s5 >= 4 ? 'var(--amber)' : 'var(--red)';
+      const detail = k === 'speed' ? (v == null ? 'No speed-limit data' : `${Math.round(T.speed.minorSec + T.speed.majorSec)} s over limit`) :
+        k === 'duration' ? `${Math.round(r.mins)} min` : (evs.length ? `${evs.length} event${evs.length > 1 ? 's' : ''}` : 'None');
+      html += `<div class="f-row"><div class="f-ic">${svgIcon(k, 19, col)}</div><div class="f-main">
+        <div class="f-top"><span>${m.name}</span><b style="color:${col}">${s5 == null ? '—' : s5 + '/5'}</b></div>
+        <div class="f-bar"><i style="width:${v == null ? 0 : Math.max(4, v)}%;background:${col}"></i></div>
+        <div class="f-sub">${detail}${v != null && v < 99.5 ? ' · ' + m.tip : ''}</div></div></div>`;
+    }
+    html += `</div>`;
+  }
+  for (const k of (themed ? [] : FACTORS)) {
     const m = FACTOR_META[k], v = r.factors[k];
     const evs = T.events.filter(e => e.type === k);
     let detail = '';
@@ -1022,14 +1275,51 @@ $('demoBtn').onclick = () => {
 
 /* ---------- navigation ---------- */
 function showView(v){
+  curView = v;
   document.querySelectorAll('.view').forEach(s => s.classList.toggle('active', s.id === 'v-' + v));
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.v === v));
   if (v === 'trips') renderTrips();
   if (v === 'stats') renderStats();
   if (v === 'settings') renderSettings();
+  renderThemed();
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => { if (b.dataset.v === 'trips') openTrip = null; showView(b.dataset.v); });
 $('startbtn').onclick = () => active ? stop() : start();
+/* themes */
+const THEMES = {
+  classic:  { name: 'Classic',       desc: 'The original layout',                      sw: ['#0d1210', '#4cc06a', '#f08a24'], meta: '#0d1210' },
+  midnight: { name: 'Midnight Road', desc: 'Speed dial, navy and electric blue',        sw: ['#0B1020', '#4F8BFF', '#FFB547'], meta: '#0B1020' },
+  daylight: { name: 'Daylight',      desc: 'Light and warm, big number and sign',       sw: ['#F6F4EF', '#E2553A', '#0F7B6C'], meta: '#F6F4EF' },
+  hud:      { name: 'Night HUD',     desc: 'Dashboard readout with a segment bar',      sw: ['#0E0E10', '#C6F432', '#8B7CFF'], meta: '#0E0E10' },
+  glance:   { name: 'Glance',        desc: 'Whole screen turns green, amber or red',  sw: ['#12784A', '#A64B00', '#B3261E'], meta: '#1A1D23' },
+  road:     { name: 'Road View',     desc: 'Your drive drawn as a road',              sw: ['#151A33', '#5B8CFF', '#FFC94D'], meta: '#151A33' },
+  auto:     { name: 'Auto',          desc: 'Daylight 7 AM – 7 PM, Midnight Road after', sw: ['#F6F4EF', '#E2553A', '#0B1020'] }
+};
+function effectiveTheme(){
+  if (settings.theme !== 'auto') return THEMES[settings.theme] ? settings.theme : 'classic';
+  const h = new Date().getHours(); return (h >= 7 && h < 19) ? 'daylight' : 'midnight';
+}
+function applyTheme(){
+  const t = effectiveTheme();
+  if (t === 'classic') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', THEMES[t].meta);
+  renderLive(); if (openTrip && document.getElementById('v-trips').classList.contains('active')) renderTrips();
+  const n = $('themeNow'); if (n) n.textContent = THEMES[settings.theme] ? THEMES[settings.theme].name + (settings.theme === 'auto' ? ` (now ${THEMES[t].name})` : '') : 'Classic';
+}
+function renderThemeList(){
+  $('themeList').innerHTML = Object.entries(THEMES).map(([k, t]) =>
+    `<button class="theme-opt${settings.theme === k ? ' on' : ''}" data-t="${k}" aria-pressed="${settings.theme === k}">
+      <span class="sw">${t.sw.map(c => `<i style="background:${c}"></i>`).join('')}</span>
+      <span>${t.name}<small>${t.desc}</small></span></button>`).join('');
+  $('themeList').querySelectorAll('.theme-opt').forEach(b => b.onclick = () => { settings.theme = b.dataset.t; saveSettings(); applyTheme(); renderThemeList(); });
+}
+function openThemes(){ renderThemeList(); $('themeSheet').hidden = false; }
+$('themeBtn').onclick = openThemes;
+$('themeOpen').onclick = openThemes;
+$('themeDone').onclick = () => { $('themeSheet').hidden = true; };
+$('themeSheet').onclick = (e) => { if (e.target.id === 'themeSheet') $('themeSheet').hidden = true; };
+applyTheme();
+setInterval(() => { if (settings.theme === 'auto') applyTheme(); }, 60000);
 /* self-update: compare this page's version with the one on the site */
 const APP_VERSION = (document.querySelector('.topbar h1 span') || {}).textContent || '';
 async function checkUpdate(){
@@ -1054,6 +1344,7 @@ function openPicker(wayId, name, cur){
   $('pickerBtns').querySelectorAll('button').forEach(b => b.onclick = () => { setOverride(wayId, +b.dataset.v); P.style.display = 'none'; toast(+b.dataset.v ? `Saved: ${name || 'this road'} = ${b.dataset.v}` : 'Back to map value'); renderLive(); renderTrips(); });
   P.style.display = 'block';
 }
+$('themeDrive').onclick = (e) => { if (e.target.closest('[data-fix]')) $('sign').onclick(); };
 $('sign').onclick = () => {
   const L = lastLimit;
   if (!active || !L.wayId) { toast(active ? 'No road matched yet' : 'Start driving first'); return; }
