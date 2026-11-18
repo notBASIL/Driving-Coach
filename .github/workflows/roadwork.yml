@@ -9,6 +9,10 @@ on:
       - "tools/build_roadwork.py"
       - ".github/workflows/roadwork.yml"
 
+concurrency:
+  group: roads-data   # map rebuild and road-work update take turns
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pages: write

@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+
+# Map build leftovers (made inside GitHub Actions)
+*.osm.pbf
+*.geojsonseq
+
+# OS / editor clutter
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -11,6 +11,10 @@ on:
       - "tools/official.py"
       - ".github/workflows/road-data.yml"
 
+concurrency:
+  group: roads-data   # map rebuild and road-work update take turns
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pages: write
@@ -42,6 +46,7 @@ jobs:
           git add roads
           if git diff --cached --quiet; then echo "No changes"; exit 0; fi
           git commit -m "Update road speed-limit data"
+          git pull --rebase -q origin main
           git push
       - name: Republish GitHub Pages
         env:
